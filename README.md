@@ -54,11 +54,13 @@ history. Television's own frecency remains available.
 ```sh
 just fmt
 just lint
-just test
-just e2e
-just ci
+just test-fast
+just test-contract
+just test-tui
+just test-snapshots
+just test-all
 ```
 
-See the [architecture](docs/architecture.md) and the
+See the [testing guide](docs/testing.md), the [architecture](docs/architecture.md), and the
 [implementation plan](docs/plans/jtv-rust-application.md) for the contracts and
 verification strategy.

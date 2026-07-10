@@ -20,6 +20,44 @@ pick-file path:
 secret token:
     @printf 'secret:%s\n' "$1" >> "$JTV_E2E_LOG"
 
+# Accept the configured boolean picker value.
+boolean enabled:
+    @printf 'boolean:%s\n' "$1" >> "$JTV_E2E_LOG"
+
+# Capture a configured directory path.
+pick-directory path:
+    @printf 'directory:%s\n' "$1" >> "$JTV_E2E_LOG"
+
+# Preserve an embedded newline selected through an opaque configured choice.
+newline-choice value:
+    @printf 'newline:' >> "$JTV_E2E_LOG"; printf '%s' "$1" | od -An -tx1 | tr -d ' \n' >> "$JTV_E2E_LOG"; printf '\n' >> "$JTV_E2E_LOG"
+
+# Exercise a literal default from just's JSON model.
+literal-default value="fallback":
+    @printf 'literal-default:%s\n' "$1" >> "$JTV_E2E_LOG"
+
+# Exercise a non-literal just expression default.
+expression-default value=(env_var_or_default("JTV_E2E_EXPR", "expression-fallback")):
+    @printf 'expression-default:%s\n' "$1" >> "$JTV_E2E_LOG"
+
+# Capture zero or more positional values without reinterpreting them.
+variadic *items:
+    @printf 'variadic' >> "$JTV_E2E_LOG"; for item in "$@"; do printf ':%s' "$item" >> "$JTV_E2E_LOG"; done; printf '\n' >> "$JTV_E2E_LOG"
+
+# Capture a required plus variadic.
+plus-variadic +items:
+    @printf 'plus' >> "$JTV_E2E_LOG"; for item in "$@"; do printf ':%s' "$item" >> "$JTV_E2E_LOG"; done; printf '\n' >> "$JTV_E2E_LOG"
+
+# Exercise a fixed-value long flag and a value-taking short option.
+[arg("force", long="force", value="enabled")]
+[arg("target", short="t")]
+flag-options force="disabled" target="default":
+    @printf 'flags:%s:%s\n' "$1" "$2" >> "$JTV_E2E_LOG"
+
+alias simple-alias := simple
+
+mod ops
+
 # First recipe in the deterministic queue.
 queue-a:
     @printf 'queue-a\n' >> "$JTV_E2E_LOG"

@@ -77,3 +77,28 @@ alias shortcut := target
     assert_eq!(alias.alias_target.as_deref(), Some("target"));
     assert_eq!(alias.parameters, target.parameters);
 }
+
+#[test]
+fn recognizes_real_just_options_and_fixed_value_flags() {
+    let temp = tempfile::tempdir().unwrap();
+    let justfile = temp.path().join("justfile");
+    std::fs::write(
+        &justfile,
+        r#"
+[arg("force", long="force", value="enabled")]
+[arg("target", short="t")]
+flags force="disabled" target="default":
+    @echo {{force}} {{target}}
+"#,
+    )
+    .unwrap();
+    let invocation = Invocation::new(temp.path().into(), Some(justfile), None, false);
+    let project = load_project(&invocation).unwrap();
+    let recipe = project.recipe("flags").unwrap();
+    assert!(recipe.parameters[0].flag);
+    assert_eq!(recipe.parameters[0].long.as_deref(), Some("force"));
+    assert_eq!(recipe.parameters[0].value.as_deref(), Some("enabled"));
+    assert!(recipe.parameters[1].flag);
+    assert_eq!(recipe.parameters[1].short.as_deref(), Some("t"));
+    assert_eq!(recipe.parameters[1].value, None);
+}

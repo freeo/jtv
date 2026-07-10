@@ -50,13 +50,15 @@ fn param(name: &str, default: Option<&str>, kind: ParameterKind, flag: bool) -> 
 
 #[test]
 fn collects_defaults_flags_variadics_and_redacts_secrets() {
+    let mut verbose = param("verbose", None, ParameterKind::Singular, true);
+    verbose.value = Some("true".into());
     let recipe = Recipe {
         name: "r".into(),
         namepath: "r".into(),
         parameters: vec![
             param("target", Some("dev"), ParameterKind::Singular, false),
             param("token", None, ParameterKind::Singular, false),
-            param("verbose", None, ParameterKind::Singular, true),
+            verbose,
             param("rest", None, ParameterKind::Star, false),
         ],
         ..Recipe::default()
@@ -209,6 +211,42 @@ type = "directory"
     assert_eq!(
         collected.value("directory"),
         Some(&ParameterValue::Scalar("deploy".into()))
+    );
+}
+
+#[test]
+fn fixed_value_flag_uses_boolean_picker_but_value_option_prompts() {
+    let mut fixed = param("force", Some("disabled"), ParameterKind::Singular, true);
+    fixed.long = Some("force".into());
+    fixed.value = Some("enabled".into());
+    let mut option = param("target", Some("default"), ParameterKind::Singular, true);
+    option.short = Some("t".into());
+    let recipe = Recipe {
+        name: "flags".into(),
+        namepath: "flags".into(),
+        parameters: vec![fixed, option],
+        ..Recipe::default()
+    };
+    let mut prompts = Fake {
+        inputs: [Some("production".into())].into(),
+        ..Fake::default()
+    };
+    let mut picker = Fake {
+        choices: [Some("true".into())].into(),
+        ..Fake::default()
+    };
+    let collected = collect(
+        &recipe,
+        &Config::default(),
+        Path::new("."),
+        &mut prompts,
+        &mut picker,
+    )
+    .unwrap();
+    assert_eq!(collected.value("force"), Some(&ParameterValue::Flag(true)));
+    assert_eq!(
+        collected.value("target"),
+        Some(&ParameterValue::Scalar("production".into()))
     );
 }
 

@@ -1,0 +1,48 @@
+---
+source: tests/tui_snapshots.rs
+expression: frame.snapshot_text(scenario.sandbox.root())
+---
+viewport: 120x40
+cursor: 1,9 visible=true
+alternate-screen: true
+---
+╭─────────────────── jtv-recipes ────────────────────╮╭─────────────────────────── queue-a ────────────────────────────╮
+│> queue-                                      1 / 3 ││ queue-a                                                        ▲
+╰────────────────────────────────────────────────────╯│                                                                █
+╭───────────────────── Results ──────────────────────╮│ First recipe in the deterministic queue.                       █
+│> ● queue-a                                         ││                                                                █
+│  ● queue-b-fail                                    ││ ["@printf 'queue-a\\n' >> \"$JTV_E2E_LOG\""]                   █
+│  ● queue-c-after                                   ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                █
+│                                                    ││                                                                ║
+│                                                    ││                                                                ║
+│                                                    ││                                                                ║
+│                                                    ││                                                                ▼
+╰────────────────────────────────────────────────────╯╰────────────────────────────────────────────────────────────────╯
+  CHANNEL  jtv-recipes •                     Actions: ctrl-x • Help: ctrl-h                                     v0.15.9

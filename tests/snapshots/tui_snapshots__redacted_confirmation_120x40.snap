@@ -1,0 +1,12 @@
+---
+source: tests/tui_snapshots.rs
+expression: rendered
+---
+viewport: 120x40
+cursor: 3,30 visible=false
+alternate-screen: false
+---
+token: [hidden]
+Commands:
+  <SANDBOX>/tools/just --justfile <SANDBOX>/project/justfile secret '[REDACTED]'
+Run selected recipe(s)? [Y/n]

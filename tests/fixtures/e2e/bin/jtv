@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-set -o pipefail
-
-if [[ ${1-} == __tv-preview ]]; then
-    "$JTV_REAL_BIN" "$@" | tee "$JTV_E2E_PREVIEW_LOG"
-else
-    exec "$JTV_REAL_BIN" "$@"
-fi

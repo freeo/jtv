@@ -7,3 +7,13 @@ type = "file"
 
 [recipes.secret.params.token]
 type = "secret"
+
+[recipes.boolean.params.enabled]
+type = "boolean"
+
+[recipes.pick-directory.params.path]
+type = "directory"
+
+[recipes.newline-choice.params.value]
+type = "choice"
+values = ["line1\nline2"]

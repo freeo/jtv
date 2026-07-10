@@ -127,7 +127,7 @@ pub fn collect<P: Prompter, K: Picker>(
             secret_names.push(parameter.name.clone());
         }
         let label = parameter.help.as_deref().unwrap_or(&parameter.name);
-        let value = if parameter.flag && parameter.value.is_none() {
+        let value = if parameter.flag && parameter.value.is_some() {
             let choices = vec!["true".into(), "false".into()];
             let answer = picker.choose(label, &choices)?.ok_or(Error::Cancelled)?;
             ParameterValue::Flag(answer == "true")

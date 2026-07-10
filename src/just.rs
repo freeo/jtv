@@ -207,7 +207,7 @@ fn normalize_parameter(raw: &RawParameter) -> Parameter {
             "star" => ParameterKind::Star,
             other => ParameterKind::Other(other.to_owned()),
         },
-        flag: raw.flag,
+        flag: raw.flag || raw.long.is_some() || raw.short.is_some(),
         long: raw.long.clone(),
         short: raw.short.clone(),
         help: raw.help.clone(),

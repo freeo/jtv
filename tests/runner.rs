@@ -1,7 +1,9 @@
+#[cfg(unix)]
+use jtv::runner::ProcessExecutor;
 use jtv::{
     Result,
     command::CommandPlan,
-    runner::{Executor, ProcessExecutor, run_queue},
+    runner::{Executor, run_queue},
 };
 use std::{collections::VecDeque, path::PathBuf};
 
