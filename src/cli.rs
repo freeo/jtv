@@ -3,7 +3,7 @@
 use std::{
     collections::BTreeSet,
     env,
-    io::{self, Write},
+    io::{self, IsTerminal, Write},
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
@@ -19,8 +19,11 @@ use crate::{
     config::Config,
     invocation::Invocation,
     just,
-    parameters::{DialoguerPrompter, collect},
+    parameters::{DialoguerPrompter, collect, dialoguer_theme},
     picker::{PickerState, TvPicker},
+    presentation::{
+        ColorMode, IconMode, PresentationOptions, ResolvedColorMode, StyleRole, StyledText,
+    },
     runner::{ProcessExecutor, run_queue},
     session::{SessionFile, SessionState},
     television,
@@ -47,6 +50,14 @@ struct Cli {
     #[arg(long)]
     dry_run: bool,
 
+    /// Control semantic colors emitted inside Television and prompts.
+    #[arg(long, value_enum, default_value_t = ColorMode::Auto)]
+    color: ColorMode,
+
+    /// Control recipe and module icons independently from color.
+    #[arg(long, value_enum, default_value_t = IconMode::Auto)]
+    icons: IconMode,
+
     #[command(subcommand)]
     command: Option<CliCommand>,
 }
@@ -64,9 +75,17 @@ enum CliCommand {
     #[command(name = "__tv-source", hide = true)]
     TvSource,
     #[command(name = "__tv-preview", hide = true)]
-    TvPreview { id: String },
+    TvPreview {
+        #[arg(long)]
+        definition: bool,
+        id: String,
+    },
     #[command(name = "__tv-run", hide = true)]
-    TvRun { ids: Vec<String> },
+    TvRun {
+        #[arg(long)]
+        dry_run: bool,
+        ids: Vec<String>,
+    },
     #[command(name = "__picker-source", hide = true)]
     PickerSource,
 }
@@ -78,10 +97,10 @@ pub fn run() -> Result<i32> {
         Some(CliCommand::Init { force }) => init(force),
         Some(CliCommand::Doctor) => doctor(),
         Some(CliCommand::TvSource) => tv_source(),
-        Some(CliCommand::TvPreview { id }) => tv_preview(&id),
-        Some(CliCommand::TvRun { ids }) => tv_run(&ids),
+        Some(CliCommand::TvPreview { definition, id }) => tv_preview(&id, definition),
+        Some(CliCommand::TvRun { dry_run, ids }) => tv_run(&ids, dry_run),
         Some(CliCommand::PickerSource) => picker_source(),
-        None => launch(cli.justfile, cli.module, cli.dry_run),
+        None => launch(cli.justfile, cli.module, cli.dry_run, cli.color, cli.icons),
     }
 }
 
@@ -143,7 +162,10 @@ fn doctor() -> Result<i32> {
 
     match television::version(&invocation.tv_binary) {
         Ok(version) if television::version_is_supported(&version) => {
-            println!("[OK] television {version}")
+            println!("[OK] television {version}");
+            println!(
+                "[WARN] recipe-row colors remain disabled until a Television ANSI+display release passes jtv's VT-cell gate"
+            );
         }
         Ok(version) => {
             println!("[FAIL] television {version}; jtv requires 0.15.9 or newer");
@@ -176,7 +198,13 @@ fn doctor() -> Result<i32> {
     Ok(if healthy { 0 } else { 1 })
 }
 
-fn launch(justfile: Option<PathBuf>, module_filter: Option<String>, dry_run: bool) -> Result<i32> {
+fn launch(
+    justfile: Option<PathBuf>,
+    module_filter: Option<String>,
+    dry_run: bool,
+    color: ColorMode,
+    icons: IconMode,
+) -> Result<i32> {
     let invocation = invocation(justfile, module_filter, dry_run)?;
     ensure_runtime_compatible(&invocation)?;
     let project = just::load_project(&invocation)?;
@@ -185,16 +213,42 @@ fn launch(justfile: Option<PathBuf>, module_filter: Option<String>, dry_run: boo
             "the Justfile has no public recipes matching this filter".into(),
         ));
     }
-    validate_config(&invocation, &project)?;
+    let loaded = validate_config(&invocation, &project)?;
     let cable_dir = channel::default_cable_dir()?;
     if !channel::channel_is_current(&cable_dir)? {
         return Err(Error::Message(
             "the jtv Television channel is missing or outdated; run `jtv init`".into(),
         ));
     }
-    let state = SessionState::new(invocation.clone(), project)?;
+    let columns = if io::stderr().is_terminal() {
+        let (_, columns) = console::Term::stderr().size();
+        (columns > 0).then_some(columns)
+    } else {
+        None
+    };
+    let mut presentation = PresentationOptions::resolve(color, icons, columns);
+    if presentation.color == ResolvedColorMode::Color
+        && env::var_os("JTV_UNSAFE_TV_ANSI_DISPLAY").as_deref() != Some(std::ffi::OsStr::new("1"))
+    {
+        // TV 0.15.9 renders source SGR bytes visibly when `ansi` and `display`
+        // are combined. Preserve opaque IDs and readable rows for every build
+        // until that exact build passes the opt-in VT-cell capability gate.
+        presentation.source_color = ResolvedColorMode::Plain;
+    }
+    let state = SessionState::new_with_presentation(
+        invocation.clone(),
+        project,
+        loaded.config,
+        presentation,
+    )?;
     let session = SessionFile::create(&state)?;
-    let status = television::launch(&invocation.tv_binary, &cable_dir, &invocation.cwd, &session)?;
+    let status = television::launch(
+        &invocation.tv_binary,
+        &cable_dir,
+        &invocation.cwd,
+        &session,
+        &state.presentation,
+    )?;
     Ok(status.code().unwrap_or(130))
 }
 
@@ -208,13 +262,18 @@ fn tv_source() -> Result<i32> {
     Ok(0)
 }
 
-fn tv_preview(id: &str) -> Result<i32> {
+fn tv_preview(id: &str, definition: bool) -> Result<i32> {
     let state = crate::session::load_from_env()?;
-    print!("{}", television::preview(&state, id)?);
+    let preview = if definition {
+        television::definition_preview(&state, id)?
+    } else {
+        television::preview(&state, id)?
+    };
+    print!("{preview}");
     Ok(0)
 }
 
-fn tv_run(ids: &[String]) -> Result<i32> {
+fn tv_run(ids: &[String], dry_run: bool) -> Result<i32> {
     if ids.is_empty() {
         return Err(Error::Message(
             "Television supplied no recipe selections".into(),
@@ -237,26 +296,49 @@ fn tv_run(ids: &[String]) -> Result<i32> {
         ));
     }
 
-    let loaded = validate_config(&state.invocation, &state.project)?;
-    let mut prompts = DialoguerPrompter;
+    let mut prompts = DialoguerPrompter::new(state.presentation.color);
     let mut picker = TvPicker::new(state.invocation.tv_binary.clone())?;
     let mut plans = Vec::with_capacity(recipes.len());
+    let mut invocation = state.invocation.clone();
+    invocation.dry_run |= dry_run;
+    let mut context = StyledText::new();
+    if recipes.len() == 1 {
+        context
+            .inline("Recipe: ", StyleRole::Dim)
+            .inline(&recipes[0].namepath, StyleRole::Recipe)
+            .newline();
+    } else {
+        context.inline(
+            format!("Queue ({} recipes)\n", recipes.len()),
+            StyleRole::Bold,
+        );
+        for recipe in &recipes {
+            context
+                .inline("• ", StyleRole::Plain)
+                .inline(&recipe.namepath, StyleRole::Recipe)
+                .newline();
+        }
+    }
+    eprint!("{}", context.render(state.presentation.color));
     for recipe in recipes {
         let values = collect(
             recipe,
-            &loaded.config,
+            &state.config,
             &state.invocation.cwd,
             &mut prompts,
             &mut picker,
         )?;
-        plans.push(build_plan(&state.invocation, recipe, &values)?);
+        plans.push(build_plan(&invocation, recipe, &values)?);
     }
 
-    eprintln!("Commands:");
+    let mut heading = StyledText::new();
+    heading.inline("Execution plan:", StyleRole::Bold);
+    eprintln!("{}", heading.render(state.presentation.color));
     for plan in &plans {
         eprintln!("  {}", plan.display_redacted());
     }
-    let confirmed = Confirm::new()
+    let theme = dialoguer_theme(state.presentation.color);
+    let confirmed = Confirm::with_theme(theme.as_ref())
         .with_prompt("Run selected recipe(s)?")
         .default(true)
         .interact()

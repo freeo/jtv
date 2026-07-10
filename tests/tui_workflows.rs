@@ -53,6 +53,101 @@ fn browse_filter_visible_preview_and_run() {
 
 #[test]
 #[ignore = "requires pinned real television and just; run via test-tui"]
+fn cycles_to_faithful_definition_and_runs_the_explicit_dry_run_action() {
+    let mut scenario = RealTvScenario::launch("definition-and-dry-run").unwrap();
+    scenario.select_recipe("simple");
+    scenario.key(Key::Ctrl('f'));
+    let definition = scenario.wait("faithful just definition preview", "simple:");
+    assert!(definition.contains("@printf 'simple\\n'"));
+
+    scenario.key(Key::Ctrl('x'));
+    scenario.wait("Television action menu", "Dry-run selected recipes");
+    scenario.text("dry-run");
+    scenario.key(Key::Enter);
+    scenario.confirm();
+    assert_status(scenario.exit(), 0);
+    assert!(
+        scenario.events().is_empty(),
+        "just --dry-run must print the recipe command without executing it"
+    );
+    scenario.assert_clean();
+}
+
+#[test]
+#[ignore = "requires pinned real television and just; run via test-tui"]
+fn live_resize_preserves_filter_identity_preview_and_focus() {
+    let mut scenario = RealTvScenario::launch("live-resize").unwrap();
+    scenario.select_recipe("capture");
+    scenario.session.resize(80, 24).unwrap();
+    let narrow = scenario.wait(
+        "narrow resized recipe and preview",
+        "Capture one argument literally.",
+    );
+    assert_eq!((narrow.columns, narrow.rows), (80, 24));
+    assert!(narrow.contains("capture"));
+    assert!(narrow.cursor_visible);
+
+    scenario.session.resize(120, 40).unwrap();
+    let wide = scenario.wait(
+        "wide resized recipe and preview",
+        "Capture one argument literally.",
+    );
+    assert_eq!((wide.columns, wide.rows), (120, 40));
+    assert!(wide.contains("capture"));
+    assert!(wide.cursor_visible);
+    scenario.key(Key::Escape);
+    assert_status(scenario.exit(), 0);
+    assert!(scenario.events().is_empty());
+    scenario.assert_clean();
+}
+
+#[test]
+#[ignore = "requires pinned real television and just; run via test-tui"]
+fn television_caches_repeated_definition_previews() {
+    let mut scenario = RealTvScenario::launch("definition-cache").unwrap();
+    scenario.select_recipe("simple");
+    scenario.key(Key::Ctrl('f'));
+    scenario.wait("first Definition callback", "simple:");
+    scenario.key(Key::Ctrl('f'));
+    scenario.wait("return to Details", "Write a no-argument marker.");
+    scenario.key(Key::Ctrl('f'));
+    scenario.wait("cached Definition callback", "simple:");
+    let invocations = scenario.just_invocations();
+    let show_count = invocations
+        .iter()
+        .filter(|invocation| invocation.contains("--show simple"))
+        .count();
+    assert_eq!(
+        show_count, 1,
+        "Television must cache the identical Definition command"
+    );
+    assert_eq!(
+        invocations
+            .iter()
+            .filter(|invocation| invocation.contains("--dump"))
+            .count(),
+        2,
+        "launch performs one contract dump and one project dump, never one subprocess per row"
+    );
+    assert_eq!(
+        invocations
+            .iter()
+            .filter(|invocation| invocation.as_str() == "--version")
+            .count(),
+        1
+    );
+    assert_eq!(
+        invocations.len(),
+        4,
+        "the complete just process set is version + two dumps + one cached Definition: {invocations:?}"
+    );
+    scenario.key(Key::Escape);
+    assert_status(scenario.exit(), 0);
+    scenario.assert_clean();
+}
+
+#[test]
+#[ignore = "requires pinned real television and just; run via test-tui"]
 fn scalar_defaults_alias_module_and_variadics() {
     let mut scalar = RealTvScenario::launch("scalar-adversarial").unwrap();
     scalar.select_recipe("capture");

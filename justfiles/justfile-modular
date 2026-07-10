@@ -1,0 +1,58 @@
+# Modular justfile example with module imports
+
+# Import modules
+mod docker "mods/docker.just"
+mod test "mods/testing.just"
+mod deploy "mods/deploy.just"
+
+# === Core recipes (non-modular) ===
+
+# Command with no parameters
+[doc('title thingy')]
+hello:
+    #!/usr/bin/bash
+    echo "Hello, Germany!"
+    echo "Hello, Poland!"
+    echo "Hello, Netherlands!"
+    echo "Hello, Sweden!"
+
+# Show all available commands
+help:
+    @just --list --justfile {{justfile()}}
+
+# Build the application
+build target="all":
+    @echo "Building target: {{target}}"
+    @echo "make {{target}}"
+
+# Clean build artifacts
+clean:
+    @echo "Cleaning build artifacts"
+    @echo "rm -rf dist/ build/"
+
+# Install dependencies
+install:
+    @echo "Installing dependencies"
+    @echo "npm install"
+
+reinstall: clean install
+    @echo "reinstalled!"
+
+mixed name: clean install
+    @echo "Hello {{name}}!"
+
+mixed-default name="Alice": clean install
+    @echo "Hello {{name}}!"
+
+# Development server
+dev port="3000":
+    @echo "Starting dev server on port {{port}}"
+    @echo "npm run dev -- --port {{port}}"
+
+# Full CI pipeline
+ci: install test::unit build docker::build
+    @echo "CI pipeline completed successfully"
+
+# Deploy to staging pipeline
+deploy-staging: test::all docker::build docker::push deploy::staging
+    @echo "Staging deployment completed"

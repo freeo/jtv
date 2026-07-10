@@ -1,0 +1,22 @@
+# Test justfile for file completion feature
+
+# Recipe with required parameter that could be a file
+build target:
+    echo "Building target: {{target}}"
+
+double first second:
+    echo "for testing . style auto-complete"
+    echo "first file: {{first}}"
+    echo "second file: {{second}}"
+
+# Recipe with optional parameter with default
+deploy file="config.json":
+    echo "Deploying with config: {{file}}"
+
+# Recipe with multiple parameters
+process input output="result.txt":
+    echo "Processing {{input}} -> {{output}}"
+
+# Recipe with no parameters
+clean:
+    echo "Cleaning up..."

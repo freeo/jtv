@@ -12,6 +12,7 @@ use std::time::Duration;
 
 use keys::Key;
 use pty::{PtyCommand, PtyEvent, PtySession};
+use screen::{CellStyle, ScreenColor};
 
 const DEADLINE: Duration = Duration::from_secs(5);
 
@@ -81,6 +82,81 @@ fn resize_updates_kernel_and_virtual_screen() {
     session.resize(100, 31).unwrap();
     let frame = session.frame();
     assert_eq!((frame.columns, frame.rows), (100, 31));
+    session.send_key(Key::Enter).unwrap();
+    assert!(session.wait_for_exit(DEADLINE).unwrap().success());
+}
+
+#[test]
+fn ansi_styles_are_reconstructed_without_bleeding_across_resets() {
+    let mut session = PtySession::spawn(probe("styles")).unwrap();
+    let frame = session
+        .wait_for_screen("styled probe", DEADLINE, |frame| {
+            frame.contains("indexed rgb modifiers reset 界e\u{301}")
+        })
+        .unwrap();
+
+    let indexed = frame.style_at_text("indexed").unwrap();
+    assert_eq!(indexed.foreground, ScreenColor::Indexed(203));
+    assert_eq!(indexed.background, ScreenColor::Indexed(17));
+    assert!(indexed.bold);
+
+    let rgb = frame.style_at_text("rgb").unwrap();
+    assert_eq!(rgb.foreground, ScreenColor::Rgb(12, 34, 56));
+    assert_eq!(rgb.background, ScreenColor::Rgb(78, 90, 123));
+
+    let modifiers = frame.style_at_text("modifiers").unwrap();
+    assert!(modifiers.dim);
+    assert!(modifiers.italic);
+    assert!(modifiers.underline);
+    assert!(modifiers.inverse);
+
+    let reset = frame.style_at_text("reset").unwrap();
+    assert_eq!(reset, CellStyle::default());
+    let reset_region = frame.find_text("reset").unwrap();
+    assert!(frame.region_has_style(reset_region, CellStyle::default()));
+
+    let wide = frame.find_text("界").unwrap();
+    assert_eq!(wide.end_column - wide.start_column, 2);
+    assert!(frame.cell(wide.row, wide.start_column).unwrap().wide);
+    assert!(
+        frame
+            .cell(wide.row, wide.start_column + 1)
+            .unwrap()
+            .continuation
+    );
+    assert_eq!(
+        frame.cell(wide.row, wide.end_column).unwrap().text,
+        "e\u{301}"
+    );
+
+    let manifest = frame.style_manifest();
+    assert!(manifest.contains("Indexed(203)"));
+    assert!(manifest.contains("Rgb(12, 34, 56)"));
+    assert!(manifest.contains("background: Indexed(99)"));
+    assert!(!manifest.contains("\\u{1b}"));
+    session.send_key(Key::Enter).unwrap();
+    assert!(session.wait_for_exit(DEADLINE).unwrap().success());
+}
+
+#[test]
+fn styled_cells_survive_virtual_screen_resize() {
+    let mut session = PtySession::spawn(probe("style-resize")).unwrap();
+    let before = session
+        .wait_for_screen("styled resize ready", DEADLINE, |frame| {
+            frame.contains("styled-resize")
+        })
+        .unwrap();
+    assert_eq!(
+        before.style_at_text("styled-resize").unwrap().foreground,
+        ScreenColor::Rgb(1, 2, 3)
+    );
+    session.resize(100, 31).unwrap();
+    let after = session.frame();
+    assert_eq!((after.columns, after.rows), (100, 31));
+    assert_eq!(
+        after.style_at_text("styled-resize").unwrap().foreground,
+        ScreenColor::Rgb(1, 2, 3)
+    );
     session.send_key(Key::Enter).unwrap();
     assert!(session.wait_for_exit(DEADLINE).unwrap().success());
 }
@@ -358,6 +434,33 @@ fn terminal_probe_child() {
             let mut line = String::new();
             input.lock().read_line(&mut line).unwrap();
             print!("received:{}\r\n", line.trim_end_matches(['\r', '\n']));
+            output.flush().unwrap();
+            let mut byte = [0];
+            let _ = input.read_exact(&mut byte);
+        }
+        "styles" => {
+            // Split both CSI sequences and UTF-8 codepoints across writes to
+            // exercise the same chunking behavior as a real interactive app.
+            for fragment in [
+                b"\x1b[38;5;2".as_slice(),
+                b"03;48;5;17;1mindexed\x1b[0m ",
+                b"\x1b[38;2;12;34;56;48;2;78;90;123mrgb\x1b[0m ",
+                b"\x1b[2;3;4;7mmodifiers\x1b[0m reset ",
+                b"\xe7",
+                b"\x95",
+                b"\x8c",
+                b"e",
+                b"\xcc",
+                b"\x81 \x1b[48;5;99m  \x1b[0m\r\n",
+            ] {
+                output.write_all(fragment).unwrap();
+                output.flush().unwrap();
+            }
+            let mut byte = [0];
+            let _ = input.read_exact(&mut byte);
+        }
+        "style-resize" => {
+            print!("\x1b[38;2;1;2;3mstyled-resize\x1b[0m\r\n");
             output.flush().unwrap();
             let mut byte = [0];
             let _ = input.read_exact(&mut byte);

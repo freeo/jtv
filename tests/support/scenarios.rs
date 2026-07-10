@@ -37,13 +37,22 @@ impl RealTvScenario {
     /// Workflow tests retain their wider historical viewport, while reviewed
     /// Linux snapshots use the canonical 120x40 contract.
     pub fn launch_with_viewport(name: &str, columns: u16, rows: u16) -> io::Result<Self> {
+        Self::launch_with_options(name, columns, rows, &[])
+    }
+
+    pub fn launch_with_options(
+        name: &str,
+        columns: u16,
+        rows: u16,
+        jtv_args: &[&str],
+    ) -> io::Result<Self> {
         require_real_tools()?;
         let sandbox = TestSandbox::new()?;
         copy_fixture(&sandbox)?;
         let event_log = sandbox.root().join("executions.log");
         fs::write(&event_log, [])?;
         install_channel(&sandbox, &event_log)?;
-        let command = jtv_command(&sandbox, &event_log, columns, rows);
+        let command = jtv_command(&sandbox, &event_log, columns, rows, jtv_args);
         let session = PtySession::spawn(command)?;
         let artifacts = FailureArtifacts::new(
             name,
@@ -137,6 +146,14 @@ impl RealTvScenario {
 
     pub fn events(&self) -> Vec<String> {
         fs::read_to_string(&self.event_log)
+            .unwrap_or_default()
+            .lines()
+            .map(str::to_owned)
+            .collect()
+    }
+
+    pub fn just_invocations(&self) -> Vec<String> {
+        fs::read_to_string(self.sandbox.root().join("just-invocations.log"))
             .unwrap_or_default()
             .lines()
             .map(str::to_owned)
@@ -333,12 +350,28 @@ fn configured_command(
     command
 }
 
-fn jtv_command(sandbox: &TestSandbox, event_log: &Path, columns: u16, rows: u16) -> PtyCommand {
-    let mut command = PtyCommand::new(env!("CARGO_BIN_EXE_jtv"), sandbox.project())
+fn jtv_command(
+    sandbox: &TestSandbox,
+    event_log: &Path,
+    columns: u16,
+    rows: u16,
+    jtv_args: &[&str],
+) -> PtyCommand {
+    let force_color = jtv_args
+        .windows(2)
+        .any(|pair| pair == ["--color", "always"]);
+    let mut command = PtyCommand::new(env!("CARGO_BIN_EXE_jtv"), sandbox.project());
+    for arg in jtv_args {
+        command = command.arg(arg);
+    }
+    command = command
         .arg("--justfile")
         .arg("justfile")
         .viewport(columns, rows);
     for (key, value) in scenario_environment(sandbox, event_log) {
+        if force_color && key == OsStr::new("NO_COLOR") {
+            continue;
+        }
         command = command.env(key, value);
     }
     command
@@ -346,11 +379,7 @@ fn jtv_command(sandbox: &TestSandbox, event_log: &Path, columns: u16, rows: u16)
 
 fn scenario_environment(sandbox: &TestSandbox, event_log: &Path) -> BTreeMap<OsString, OsString> {
     let mut env = sandbox.environment();
-    let just = sandbox_tool(
-        sandbox,
-        "just",
-        &real_tool_path("just").expect("real just checked"),
-    );
+    let just = sandbox_just_tool(sandbox, &real_tool_path("just").expect("real just checked"));
     let tv = sandbox_tool(
         sandbox,
         "tv",
@@ -360,6 +389,9 @@ fn scenario_environment(sandbox: &TestSandbox, event_log: &Path) -> BTreeMap<OsS
     env.insert("JTV_TV".into(), tv.into_os_string());
     env.insert("JTV_E2E_LOG".into(), event_log.as_os_str().to_owned());
     env.insert("JTV_E2E_EXPR".into(), "expression-fallback".into());
+    if std::env::var_os("JTV_TEST_TV_ANSI_DISPLAY").as_deref() == Some(OsStr::new("1")) {
+        env.insert("JTV_UNSAFE_TV_ANSI_DISPLAY".into(), "1".into());
+    }
     let jtv_dir = Path::new(env!("CARGO_BIN_EXE_jtv")).parent().unwrap();
     let host_path = std::env::var_os("PATH").unwrap_or_else(|| "/usr/bin:/bin".into());
     let paths = std::iter::once(jtv_dir.to_path_buf()).chain(std::env::split_paths(&host_path));
@@ -376,6 +408,27 @@ fn sandbox_tool(sandbox: &TestSandbox, name: &str, source: &Path) -> PathBuf {
     let destination = directory.join(name);
     if !destination.exists() {
         std::os::unix::fs::symlink(source, &destination).expect("symlink real tool into sandbox");
+    }
+    destination
+}
+
+fn sandbox_just_tool(sandbox: &TestSandbox, source: &Path) -> PathBuf {
+    use std::os::unix::fs::PermissionsExt;
+
+    let directory = sandbox.root().join("tools");
+    fs::create_dir_all(&directory).expect("create stable sandbox tool directory");
+    let destination = directory.join("just");
+    if !destination.exists() {
+        let log = sandbox.root().join("just-invocations.log");
+        let script = format!(
+            "#!/bin/sh\nprintf '%s\\n' \"$*\" >> '{}'\nexec '{}' \"$@\"\n",
+            log.display(),
+            source.display()
+        );
+        fs::write(&destination, script).expect("write traced just wrapper");
+        let mut permissions = fs::metadata(&destination).unwrap().permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(&destination, permissions).unwrap();
     }
     destination
 }

@@ -1,0 +1,25 @@
+# Sample justfile for testing interactive parameter handling
+
+# Command with no parameters
+hello:
+    echo "Hello, World!"
+
+# Command with one parameter and default value
+greet name="User":
+    echo "Hello, {{name}}!"
+
+# Command with multiple parameters
+deploy env="staging" version="latest":
+    echo "Deploying version {{version}} to {{env}} environment"
+
+# Command with required parameter (no default)
+build target:
+    echo "Building for target: {{target}}"
+
+# Command with mixed parameters
+test suite="unit" verbose="false" timeout="30":
+    echo "Running {{suite}} tests (verbose={{verbose}}, timeout={{timeout}}s)"
+
+# List all recipes
+list:
+    @just --list

@@ -16,20 +16,25 @@ struct Fake {
     many: VecDeque<Option<Vec<String>>>,
     choices: VecDeque<Option<String>>,
     paths: VecDeque<Option<PathBuf>>,
+    labels: Vec<String>,
 }
 impl Prompter for Fake {
-    fn input(&mut self, _: &str, _: Option<&str>, _: bool) -> Result<Option<String>> {
+    fn input(&mut self, label: &str, _: Option<&str>, _: bool) -> Result<Option<String>> {
+        self.labels.push(label.into());
         Ok(self.inputs.pop_front().unwrap())
     }
-    fn variadic(&mut self, _: &str, _: usize, _: bool) -> Result<Option<Vec<String>>> {
+    fn variadic(&mut self, label: &str, _: usize, _: bool) -> Result<Option<Vec<String>>> {
+        self.labels.push(label.into());
         Ok(self.many.pop_front().unwrap())
     }
 }
 impl Picker for Fake {
-    fn choose(&mut self, _: &str, _: &[String]) -> Result<Option<String>> {
+    fn choose(&mut self, label: &str, _: &[String]) -> Result<Option<String>> {
+        self.labels.push(label.into());
         Ok(self.choices.pop_front().unwrap())
     }
-    fn choose_path(&mut self, _: &str, _: &Path, _: PathKind) -> Result<Option<PathBuf>> {
+    fn choose_path(&mut self, label: &str, _: &Path, _: PathKind) -> Result<Option<PathBuf>> {
+        self.labels.push(label.into());
         Ok(self.paths.pop_front().unwrap())
     }
 }
@@ -212,6 +217,15 @@ type = "directory"
         collected.value("directory"),
         Some(&ParameterValue::Scalar("deploy".into()))
     );
+    assert_eq!(
+        picker.labels,
+        [
+            "[2/5] Choose environment — choice",
+            "[3/5] Choose confirm — boolean",
+            "[4/5] Select manifest — file",
+            "[5/5] Select directory — directory",
+        ]
+    );
 }
 
 #[test]
@@ -271,4 +285,40 @@ fn explicit_prompt_cancellation_returns_cancelled() {
     )
     .unwrap_err();
     assert!(matches!(error, jtv::Error::Cancelled));
+}
+
+#[test]
+fn prompt_labels_explain_progress_type_requirements_and_hide_secret_defaults() {
+    let mut token = param(
+        "token",
+        Some("hidden-default"),
+        ParameterKind::Singular,
+        false,
+    );
+    token.help = Some("API credential".into());
+    let recipe = Recipe {
+        name: "deploy".into(),
+        namepath: "deploy".into(),
+        parameters: vec![token, param("path", None, ParameterKind::Singular, false)],
+        ..Recipe::default()
+    };
+    let config: Config = toml::from_str(
+        "[recipes.deploy.params.token]\ntype='secret'\n[recipes.deploy.params.path]\ntype='file'",
+    )
+    .unwrap();
+    let mut prompts = Fake {
+        inputs: [Some("provided".into())].into(),
+        ..Fake::default()
+    };
+    let mut picker = Fake {
+        paths: [Some("artifact.txt".into())].into(),
+        ..Fake::default()
+    };
+    collect(&recipe, &config, Path::new("."), &mut prompts, &mut picker).unwrap();
+    assert_eq!(
+        prompts.labels,
+        ["[1/2] token (secret, default: [REDACTED]) — API credential"]
+    );
+    assert_eq!(picker.labels, ["[2/2] Select path — file"]);
+    assert!(!format!("{:?}", prompts.labels).contains("hidden-default"));
 }

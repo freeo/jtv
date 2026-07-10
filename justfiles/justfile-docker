@@ -1,0 +1,21 @@
+# Docker management justfile
+
+# Build container
+build tag="latest" platform="linux/amd64":
+    echo "Building image with tag {{tag}} for {{platform}}"
+
+# Run container
+run image port="8080":
+    echo "Running {{image}} on port {{port}}"
+
+# Stop all containers
+stop-all:
+    echo "Stopping all containers..."
+
+# Clean unused images
+prune days="7":
+    echo "Pruning images older than {{days}} days"
+
+# Show logs
+logs container lines="100":
+    echo "Showing {{lines}} lines from {{container}}"

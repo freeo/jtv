@@ -44,11 +44,11 @@ pub fn load_project(invocation: &Invocation) -> Result<Project> {
 /// Render `just --show` output for presentation only. No semantics are parsed from it.
 pub fn render_preview(invocation: &Invocation, recipe: &Recipe) -> Result<String> {
     let mut command = Command::new(&invocation.just_binary);
-    command.current_dir(&invocation.cwd).arg("--show");
+    command.current_dir(&invocation.cwd);
     if let Some(justfile) = &invocation.justfile {
         command.arg("--justfile").arg(justfile);
     }
-    command.arg(&recipe.namepath);
+    command.arg("--show").arg(&recipe.namepath);
     let output = command.output().map_err(|source| {
         if source.kind() == io::ErrorKind::NotFound {
             Error::MissingProgram { program: "just" }
@@ -182,12 +182,26 @@ fn normalize_recipe(raw: &RawRecipe, module: Option<&str>) -> Recipe {
         module: module.map(str::to_owned),
         dependencies: raw.dependencies.iter().map(dependency_text).collect(),
         parameters: raw.parameters.iter().map(normalize_parameter).collect(),
-        body: raw.body.iter().map(value_text).collect(),
+        body: raw.body.iter().map(body_line).collect(),
         attributes: raw.attributes.iter().map(value_text).collect(),
         private: raw.private,
         quiet: raw.quiet,
         shebang: raw.shebang,
         alias_target: None,
+    }
+}
+
+fn body_line(value: &Value) -> String {
+    match value {
+        Value::String(text) => text.clone(),
+        Value::Array(parts) => parts
+            .iter()
+            .map(|part| match part {
+                Value::String(text) => text.clone(),
+                other => value_text(other),
+            })
+            .collect(),
+        other => value_text(other),
     }
 }
 

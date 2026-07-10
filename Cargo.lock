@@ -399,11 +399,13 @@ version = "0.4.0"
 dependencies = [
  "assert_cmd",
  "clap",
+ "console",
  "ctrlc",
  "dialoguer",
  "directories",
  "getrandom 0.4.3",
  "insta",
+ "libc",
  "portable-pty",
  "predicates",
  "pretty_assertions",

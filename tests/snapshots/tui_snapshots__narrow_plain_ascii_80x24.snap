@@ -1,0 +1,37 @@
+---
+source: tests/tui_snapshots.rs
+expression: frame.styled_snapshot_text(scenario.sandbox.root())
+---
+viewport: 80x24
+cursor: 1,4 visible=true
+alternate-screen: true
+---
+╭──────────────────────────────── jtv-recipes ─────────────────────────────────╮
+│ >                                                                    1 / 18  │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭────────────────────────────────── Results ───────────────────────────────────╮
+│ > [core] boolean enabled:<required>                                          │
+│   [core] capture value:<required>                                            │
+│   [core] choose environment:<required>                                       │
+│   [core] expression-default value:<just default>                             │
+│   [core] flag-options --force:disabled -t:default                            │
+│   [core] literal-default value:fallback                                      │
+│   [core] newline-choice value:<required>                                     │
+│   [core] pick-directory path:<required>                                      │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─────────────────────── Recipe details ⟨ ● ○ ⟩ ctrl-f ────────────────────────╮
+│  boolean                                                                    ▲│
+│                                                                             █│
+│  Summary                                                                    █│
+│  Accept the configured boolean picker value.                                █│
+│                                                                             ║│
+│  Parameters                                                                 ║│
+│  • enabled = <required>  [boolean]                                          ║│
+│                                                                             ▼│
+╰──────────────────────────────────────────────────────────────────────────────╯
+  CHANNEL  jtv-r         Actions: ctrl-x • Help: ctrl-h                 v0.15.9
+--- styles (non-default) ---
+1:4-69 "                                                                 " CellStyle { foreground: Default, background: Default, bold: false, dim: false, italic: true, underline: false, inverse: false }
+1:72-73 " " CellStyle { foreground: Default, background: Default, bold: false, dim: false, italic: true, underline: false, inverse: false }
+1:74-75 " " CellStyle { foreground: Default, background: Default, bold: false, dim: false, italic: true, underline: false, inverse: false }
+13:25-39 "Recipe details" CellStyle { foreground: Default, background: Default, bold: true, dim: false, italic: false, underline: false, inverse: false }

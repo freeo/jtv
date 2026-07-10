@@ -20,14 +20,20 @@ use std::time::Duration;
 
 use keys::Key;
 use scenarios::RealTvScenario;
-use screen::ScreenFrame;
+use screen::{ScreenColor, ScreenFrame};
 
 const COLUMNS: u16 = 120;
 const ROWS: u16 = 40;
 const SECRET: &str = "jtv-SNAPSHOT-secret-9173";
 
 fn launch(name: &str) -> RealTvScenario {
-    RealTvScenario::launch_with_viewport(name, COLUMNS, ROWS).unwrap()
+    RealTvScenario::launch_with_options(
+        name,
+        COLUMNS,
+        ROWS,
+        &["--color", "always", "--icons", "unicode"],
+    )
+    .unwrap()
 }
 
 fn assert_canonical(frame: &ScreenFrame) {
@@ -37,7 +43,7 @@ fn assert_canonical(frame: &ScreenFrame) {
 
 fn snapshot(name: &str, scenario: &RealTvScenario, frame: &ScreenFrame) {
     assert_canonical(frame);
-    insta::assert_snapshot!(name, frame.snapshot_text(scenario.sandbox.root()));
+    insta::assert_snapshot!(name, frame.styled_snapshot_text(scenario.sandbox.root()));
 }
 
 fn cancel_root(mut scenario: RealTvScenario) {
@@ -77,7 +83,86 @@ fn reviewed_browser_and_preview_frames() {
     assert!(frame.contains("Capture one argument literally."));
     assert!(frame.contains("value"));
     snapshot("filtered_recipe_with_preview_120x40", &filtered, &frame);
+    filtered.key(Key::Ctrl('f'));
+    let definition = filtered.wait(
+        "faithful Definition preview",
+        "# Capture one argument literally.",
+    );
+    assert!(definition.contains("@printf 'capture:%s\\n'"));
+    snapshot("filtered_recipe_definition_120x40", &filtered, &definition);
     cancel_root(filtered);
+}
+
+#[test]
+#[ignore = "upstream ANSI+display capability gate; requires a patched Television binary"]
+fn patched_tv_preserves_semantic_styles_in_the_real_list_and_preview() {
+    assert_eq!(
+        std::env::var("JTV_TEST_TV_ANSI_DISPLAY").as_deref(),
+        Ok("1"),
+        "set JTV_TEST_TV_ANSI_DISPLAY=1 only when JTV_TEST_REAL_TV points to the patched build"
+    );
+    let mut scenario = RealTvScenario::launch_with_options(
+        "patched-tv-semantic-styles",
+        COLUMNS,
+        ROWS,
+        &["--color", "always", "--icons", "unicode"],
+    )
+    .unwrap();
+    let frame = scenario.wait(
+        "styled recipe list and preview",
+        "Accept the configured boolean picker value.",
+    );
+    let capture_style = frame
+        .style_at_text("capture")
+        .expect("the unselected capture recipe is visible");
+    assert_eq!(
+        capture_style.foreground,
+        ScreenColor::Indexed(6),
+        "the unselected recipe-name cell must retain jtv's cyan role"
+    );
+    insta::assert_snapshot!(
+        "patched_tv_colored_source_120x40",
+        frame.styled_snapshot_text(scenario.sandbox.root())
+    );
+    scenario.text("capture");
+    scenario.wait(
+        "fuzzy matching retains the styled recipe",
+        "Capture one argument literally.",
+    );
+    scenario.key(Key::Enter);
+    scenario.wait(
+        "opaque selection reaches the parameter callback",
+        "[1/1] value",
+    );
+    scenario.key(Key::Ctrl('c'));
+    assert_eq!(scenario.exit().exit_code(), 130);
+    assert!(scenario.events().is_empty());
+    scenario.assert_clean();
+}
+
+#[test]
+#[ignore = "requires Linux plus pinned television 0.15.9 and just 1.53.0; run serialized"]
+fn reviewed_narrow_plain_ascii_frame() {
+    let mut scenario = RealTvScenario::launch_with_options(
+        "snapshot-narrow-plain-ascii",
+        80,
+        24,
+        &["--color", "never", "--icons", "ascii"],
+    )
+    .unwrap();
+    let frame = scenario.wait(
+        "narrow ASCII recipe browser",
+        "Accept the configured boolean picker value.",
+    );
+    assert_eq!((frame.columns, frame.rows), (80, 24));
+    assert!(frame.contains("[core]"));
+    assert!(frame.contains("boolean"));
+    assert!(!frame.contains("🔷"));
+    insta::assert_snapshot!(
+        "narrow_plain_ascii_80x24",
+        frame.styled_snapshot_text(scenario.sandbox.root())
+    );
+    cancel_root(scenario);
 }
 
 #[test]
@@ -88,10 +173,8 @@ fn reviewed_three_marked_selections_frame() {
     scenario.key(Key::Tab);
     scenario.key(Key::Tab);
     scenario.key(Key::Tab);
-    scenario.wait("three queue recipes marked", "● queue-c-after");
-    // TV 0.15.9 resolves preview callbacks asynchronously after rapid marks.
-    // Move away and back to establish a single known focus/preview state, then
-    // require output quiescence; this is synchronization, not a retry.
+    scenario.wait("three queue recipes marked", "● 🔷 queue-c-after");
+    // Establish a deterministic focus/preview after the rapid mark updates.
     scenario.key(Key::Down);
     scenario.key(Key::Up);
     scenario.wait(
@@ -100,17 +183,29 @@ fn reviewed_three_marked_selections_frame() {
     );
     let frame = scenario
         .session
-        .wait_for_quiet(Duration::from_millis(150), Duration::from_secs(2))
+        .wait_for_quiet(Duration::from_millis(300), Duration::from_secs(3))
         .unwrap();
     for recipe in ["queue-a", "queue-b-fail", "queue-c-after"] {
         assert!(frame.contains(recipe), "missing marked recipe {recipe}");
     }
     assert_eq!(
-        frame.text.lines().filter(|line| line.contains('●')).count(),
+        frame
+            .text
+            .lines()
+            .filter(|line| line.contains("● 🔷 queue-"))
+            .count(),
         3,
         "exactly three visible results must be marked"
     );
-    snapshot("three_marked_selections_120x40", &scenario, &frame);
+    // TV 0.15.9 emits nondeterministic partial modifier deltas while rapidly
+    // repainting marked rows. This state snapshots the stable visible grid;
+    // style manifests remain canonical in the browser, preview, picker,
+    // confirmation, Definition, and narrow states.
+    assert_canonical(&frame);
+    insta::assert_snapshot!(
+        "three_marked_selections_120x40",
+        frame.snapshot_text(scenario.sandbox.root())
+    );
     cancel_root(scenario);
 }
 
@@ -158,7 +253,7 @@ fn reviewed_redacted_confirmation_frame() {
     assert!(frame.contains("[REDACTED]"));
     assert!(!frame.contains(SECRET));
     assert!(!String::from_utf8_lossy(&scenario.session.transcript()).contains(SECRET));
-    let rendered = frame.snapshot_text(scenario.sandbox.root());
+    let rendered = frame.styled_snapshot_text(scenario.sandbox.root());
     assert!(!rendered.contains(SECRET));
     insta::assert_snapshot!("redacted_confirmation_120x40", rendered);
     scenario.text("n");
@@ -179,7 +274,7 @@ fn initial_browser_frame_is_deterministic_across_ten_clean_runs() {
             "Accept the configured boolean picker value.",
         );
         assert!(frame.contains("Accept the configured boolean picker value."));
-        let normalized = frame.snapshot_text(scenario.sandbox.root());
+        let normalized = frame.styled_snapshot_text(scenario.sandbox.root());
         let mut hasher = DefaultHasher::new();
         normalized.hash(&mut hasher);
         let hash = hasher.finish();

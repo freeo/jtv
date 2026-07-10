@@ -29,7 +29,14 @@ test-tui:
 
 # Reviewed 120x40 virtual-screen evidence; CI must never accept snapshots.
 test-snapshots:
-    INSTA_UPDATE=no cargo test --test tui_snapshots -- --ignored --test-threads=1
+    INSTA_UPDATE=no cargo test --test tui_snapshots -- --ignored --skip patched_tv_preserves_semantic_styles_in_the_real_list_and_preview --test-threads=1
+
+# Capability gate for an upstream/custom TV build that supports ANSI + display.
+test-tv-ansi-display:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    : "${JTV_TEST_REAL_TV:?point this at the candidate patched tv binary}"
+    JTV_TEST_TV_ANSI_DISPLAY=1 cargo test --test tui_snapshots patched_tv_preserves_semantic_styles_in_the_real_list_and_preview -- --ignored --test-threads=1
 
 # Repeat the real interactive suite without retries hiding an individual run.
 test-tui-soak runs="10":

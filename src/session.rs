@@ -10,7 +10,10 @@ use std::{
 use serde::{Deserialize, Serialize};
 use tempfile::{Builder, NamedTempFile};
 
-use crate::{Error, Result, cleanup::CleanupPath, invocation::Invocation, model::Project};
+use crate::{
+    Error, Result, cleanup::CleanupPath, config::Config, invocation::Invocation, model::Project,
+    presentation::PresentationOptions,
+};
 
 pub const SESSION_ENV: &str = "JTV_SESSION";
 
@@ -21,10 +24,28 @@ pub struct SessionState {
     pub invocation: Invocation,
     pub project: Project,
     pub selections: BTreeMap<String, String>,
+    #[serde(default)]
+    pub config: Config,
+    #[serde(default)]
+    pub presentation: PresentationOptions,
 }
 
 impl SessionState {
     pub fn new(invocation: Invocation, project: Project) -> Result<Self> {
+        Self::new_with_presentation(
+            invocation,
+            project,
+            Config::default(),
+            PresentationOptions::default(),
+        )
+    }
+
+    pub fn new_with_presentation(
+        invocation: Invocation,
+        project: Project,
+        config: Config,
+        presentation: PresentationOptions,
+    ) -> Result<Self> {
         let selections = project
             .recipes
             .iter()
@@ -41,6 +62,8 @@ impl SessionState {
             invocation,
             project,
             selections,
+            config,
+            presentation,
         })
     }
 

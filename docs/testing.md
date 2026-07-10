@@ -20,8 +20,9 @@ The suite is deliberately layered:
 4. Real-TV workflows drive Television 0.15.9 with named keys and semantic,
    deadline-bounded screen waits. Assertions pair visible state with exact
    append-only fixture events and cleanup checks.
-5. A small Linux snapshot set records reviewed, normalized screens. Semantic
-   assertions remain authoritative; snapshots make presentation drift visible.
+5. A small Linux snapshot set records reviewed, normalized screens and stable
+   non-default VT style runs. Semantic assertions remain authoritative;
+   snapshots make presentation drift visible.
 
 Escape cancels Television-owned recipe and nested-picker screens. Dialoguer-owned
 scalar and secret prompts use Ctrl-C cancellation; both paths are exercised and
@@ -59,6 +60,7 @@ just test-fast       # unit/integration, sandbox, PTY harness, and fake contract
 just test-contract   # fake just/TV process-boundary contracts only
 just test-tui        # all ignored real-TV workflows, serialized
 just test-snapshots  # canonical snapshots with updates forbidden
+just test-tv-ansi-display # candidate TV ANSI+display cell-style gate
 just test-tui-soak   # ten complete real-TV runs; accepts another run count
 just verify-release-artifacts # clean release excludes the fake test helper
 just test-all        # local release gate, including MSRV and RustSec audit
@@ -69,11 +71,41 @@ commands fail with actionable tool/version diagnostics when their prerequisites
 are absent. `tests/e2e/run.sh` is retained as a thin compatibility entry point
 for the Rust PTY suite; it no longer depends on Expect or timing sleeps.
 
+### Television ANSI + display compatibility
+
+Television 0.15.9 treats `[source] ansi = true` and a separate `display` template
+as incompatible: emitted SGR bytes can become visible text. jtv must retain the
+display template because action callbacks consume only opaque IDs, never recipe
+labels. At runtime jtv therefore falls back to plain source rows for every
+unverified TV build, while retaining icons, text markers, structured previews, and safe
+selection behavior.
+
+The repository has a local, opt-in capability gate for an upstream candidate:
+
+```sh
+JTV_TEST_REAL_TV=/absolute/path/to/patched/tv just test-tv-ansi-display
+```
+
+The test launches the real TUI and requires an ANSI-16 semantic color to survive
+into the final VT cells. Merely stripping escape bytes while preserving text is
+a failure. It also compares the reviewed
+`patched_tv_colored_source_120x40` text-and-style snapshot, filters the list,
+and reaches the parameter prompt through the opaque action ID.
+`JTV_UNSAFE_TV_ANSI_DISPLAY=1` is for a deliberately selected custom build;
+normal CI never sets it. Do not raise the minimum TV version or remove the
+fallback until an upstream release passes this gate.
+
+Optional `bat` preview highlighting is Unix-only. Its tests reject hostile,
+oversized, and invalid output and kill the helper process group on timeout.
+Windows intentionally uses the internal renderer rather than risking an
+unbounded descendant that inherited the preview pipe.
+
 ### Expect parity map
 
 | Former Expect behavior | Rust PTY replacement |
 |---|---|
 | Simple selection, preview, confirmation, and execution | `browse_filter_visible_preview_and_run` plus reviewed browser/preview snapshots |
+| Definition cycling and cache behavior | `cycles_to_faithful_definition_and_runs_the_explicit_dry_run_action`, the Definition snapshot, and `television_caches_repeated_definition_previews` |
 | Escape cancellation | `escape_cancels_root_nested_and_confirmation` |
 | Ctrl-C and subsequent shell command | `ctrl_c_root_and_nested_leave_no_state` and `terminal_is_usable_after_interrupt` |
 | Literal shell metacharacters | `scalar_defaults_alias_module_and_variadics` |
@@ -81,6 +113,12 @@ for the Rust PTY suite; it no longer depends on Expect or timing sleeps.
 | Secret redaction | `secret_is_hidden_and_confirmation_is_redacted` plus the redacted confirmation snapshot |
 | Three selections, stop on failure, exit 7 | `multi_select_is_deterministic_and_stops_on_first_failure` |
 | Temporary/history-file absence | Every workflow's `assert_clean` lifecycle check |
+
+The cache workflow traces every real `just` invocation and asserts the complete
+four-process set: one version probe, one compatibility dump, one project dump,
+and one cached Definition. Thus launch never starts a subprocess per recipe,
+and cycling away from and back to the same Definition invokes `just --show`
+only once through Television's preview cache.
 
 ## Failure artifacts and secret safety
 
@@ -103,14 +141,17 @@ Normal tests and CI set `INSTA_UPDATE=no`; they cannot bless changed UI. To revi
 an intentional change locally:
 
 ```sh
-INSTA_UPDATE=new cargo test --test tui_snapshots -- --ignored --test-threads=1
+INSTA_UPDATE=new cargo test --test tui_snapshots -- --ignored --skip patched_tv_preserves_semantic_styles_in_the_real_list_and_preview --test-threads=1
 cargo insta review
 just test-snapshots
 ```
 
 Inspect every `.snap.new` for meaningful content, stable normalization, accidental
 absolute paths, identifiers, and secrets before accepting it. Canonical snapshots
-use Linux and a fixed 120x40 viewport. macOS and Windows still run semantic screen
+use Linux at 120x40 plus a reviewed 80x24 plain/ASCII state, recording both the
+visible grid and non-default cell-style runs. The rapid multi-mark state records
+the grid only because TV 0.15.9 emits nondeterministic partial modifier deltas;
+its three marks and identities are asserted semantically. macOS and Windows still run semantic screen
 tests; platform-specific glyph/layout differences are not hidden to force one
 dishonest golden image.
 

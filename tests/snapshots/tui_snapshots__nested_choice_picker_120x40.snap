@@ -1,12 +1,12 @@
 ---
 source: tests/tui_snapshots.rs
-expression: frame.snapshot_text(scenario.sandbox.root())
+expression: frame.styled_snapshot_text(scenario.sandbox.root())
 ---
 viewport: 120x40
 cursor: 1,3 visible=true
 alternate-screen: true
 ---
-╭──────────────────────────────────────────────────── environment ─────────────────────────────────────────────────────╮
+╭───────────────────────────────────────── [1/1] Choose environment — choice ──────────────────────────────────────────╮
 │>                                                                                                                1 / 3│
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
 ╭────────────────────────────────────────────────────── Results ───────────────────────────────────────────────────────╮
@@ -46,3 +46,93 @@ alternate-screen: true
 │                                                                                                                      │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
   CHANNEL  Custom Channe                              Help: ctrl-h                                              v0.15.9
+--- styles (non-default) ---
+0:0-42 "╭─────────────────────────────────────────" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+0:42-77 " [1/1] Choose environment — choice " CellStyle { foreground: Indexed(2), background: Default, bold: true, dim: false, italic: false, underline: false, inverse: false }
+0:77-120 "──────────────────────────────────────────╮" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+1:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+1:1-3 "> " CellStyle { foreground: Indexed(9), background: Default, bold: true, dim: false, italic: false, underline: false, inverse: false }
+1:3-113 "                                                                                                              " CellStyle { foreground: Indexed(9), background: Default, bold: true, dim: false, italic: true, underline: false, inverse: false }
+1:113-119 " 1 / 3" CellStyle { foreground: Indexed(9), background: Default, bold: false, dim: false, italic: true, underline: false, inverse: false }
+1:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+2:0-120 "╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+3:0-120 "╭────────────────────────────────────────────────────── Results ───────────────────────────────────────────────────────╮" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+4:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+4:1-3 "> " CellStyle { foreground: Default, background: Indexed(8), bold: true, dim: false, italic: false, underline: false, inverse: false }
+4:3-14 "development" CellStyle { foreground: Indexed(10), background: Indexed(8), bold: true, dim: false, italic: false, underline: false, inverse: false }
+4:14-119 "                                                                                                         " CellStyle { foreground: Default, background: Indexed(8), bold: true, dim: false, italic: false, underline: false, inverse: false }
+4:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+5:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+5:3-10 "staging" CellStyle { foreground: Indexed(12), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+5:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+6:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+6:3-13 "production" CellStyle { foreground: Indexed(12), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+6:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+7:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+7:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+8:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+8:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+9:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+9:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+10:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+10:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+11:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+11:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+12:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+12:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+13:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+13:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+14:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+14:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+15:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+15:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+16:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+16:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+17:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+17:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+18:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+18:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+19:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+19:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+20:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+20:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+21:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+21:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+22:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+22:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+23:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+23:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+24:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+24:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+25:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+25:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+26:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+26:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+27:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+27:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+28:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+28:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+29:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+29:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+30:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+30:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+31:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+31:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+32:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+32:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+33:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+33:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+34:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+34:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+35:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+35:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+36:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+36:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+37:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+37:119-120 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+38:0-120 "╰──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+39:1-10 " CHANNEL " CellStyle { foreground: Indexed(0), background: Indexed(2), bold: true, dim: false, italic: false, underline: false, inverse: false }
+39:10-24 " Custom Channe" CellStyle { foreground: Indexed(12), background: Default, bold: true, dim: false, italic: false, underline: false, inverse: false }
+39:54-59 "Help:" CellStyle { foreground: Indexed(7), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+39:60-66 "ctrl-h" CellStyle { foreground: Indexed(2), background: Default, bold: true, dim: false, italic: false, underline: false, inverse: false }
+39:112-120 "v0.15.9 " CellStyle { foreground: Indexed(12), background: Default, bold: false, dim: false, italic: true, underline: false, inverse: false }

@@ -6,18 +6,36 @@ jtv_protocol = 1
 
 [source]
 command = "jtv __tv-source"
+ansi = true
 display = "{split:\t:1}"
 output = "{split:\t:0}"
 
 [preview]
-command = "jtv __tv-preview {split:\t:0}"
+command = [
+  "jtv __tv-preview {split:\t:0}",
+  "jtv __tv-preview --definition {split:\t:0}",
+]
+footer = "Ctrl-F view  •  PgUp/PgDn scroll  •  Ctrl-O preview"
 
 [ui]
 layout = "landscape"
+input_header = "Just recipes"
+input_prompt = "filter> "
 
 [ui.preview_panel]
 size = 55
-header = "{split:\t:1}"
+header = "Recipe details"
+scrollbar = true
+border_type = "rounded"
+padding = { left = 1, right = 1 }
+
+[ui.results_panel]
+border_type = "rounded"
+padding = { left = 1, right = 1 }
+
+[ui.input_bar]
+border_type = "rounded"
+padding = { left = 1, right = 1 }
 
 [keybindings]
 enter = "actions:run"
@@ -25,5 +43,11 @@ enter = "actions:run"
 [actions.run]
 description = "Run selected recipes"
 command = "jtv __tv-run {split:\n:..|map:{split:\t:0}|join: }"
+mode = "execute"
+separator = "\n"
+
+[actions.dry-run]
+description = "Dry-run selected recipes"
+command = "jtv __tv-run --dry-run {split:\n:..|map:{split:\t:0}|join: }"
 mode = "execute"
 separator = "\n"

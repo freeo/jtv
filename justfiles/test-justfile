@@ -1,0 +1,37 @@
+# Test justfile for just-tv.sh verification
+
+# Simple recipe without parameters
+simple:
+    @echo "OUTPUT:simple"
+
+# Recipe with one default parameter
+greet name="TestUser":
+    @echo "OUTPUT:greet:{{name}}"
+
+# Recipe with required parameter
+build target:
+    @echo "OUTPUT:build:{{target}}"
+
+# Recipe with multiple parameters
+deploy env="staging" version="v1.0":
+    @echo "OUTPUT:deploy:{{env}}:{{version}}"
+
+# Recipe with dependency
+run: simple
+    @echo "OUTPUT:run:after:simple"
+
+# Recipe with shebang
+script:
+    #!/usr/bin/env bash
+    echo "OUTPUT:script:line1"
+    echo "OUTPUT:script:line2"
+
+# Recipe with doc comment
+# This is a doc comment
+documented:
+    @echo "OUTPUT:documented"
+
+# Recipe with attribute
+[doc('Test attribute')]
+attributed:
+    @echo "OUTPUT:attributed"

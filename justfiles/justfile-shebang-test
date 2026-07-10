@@ -1,0 +1,32 @@
+# Test justfile with shebang recipes
+
+# Python script example
+python-hello name="World":
+    #!/usr/bin/env python3
+    import sys
+    print(f"Hello from Python, {{name}}!")
+    for i in range(3):
+        print(f"  Count: {i+1}")
+
+# Node.js example
+node-server port="3000":
+    #!/usr/bin/env node
+    console.log("Starting server on port {{port}}");
+    const data = {
+        port: "{{port}}",
+        status: "ready"
+    };
+    console.log(JSON.stringify(data, null, 2));
+
+# Regular bash with shebang
+bash-script:
+    #!/bin/bash
+    echo "This is a bash script"
+    for file in *.txt; do
+        echo "  - $file"
+    done
+
+# Regular recipe without shebang
+normal-recipe:
+    echo "Just a normal recipe"
+    ls -la

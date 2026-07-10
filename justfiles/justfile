@@ -1,0 +1,37 @@
+# Sample justfile for testing interactive parameter handling
+
+alpha:
+  echo "regression test: is first alphabetic item shown?"
+
+# Command with no parameters
+[doc('title thingy')]
+hello:
+    #!/usr/bin/bash
+    echo "Hello, Germany!"
+    echo "Hello, Poland!"
+    echo "Hello, Netherlands!"
+    echo "Hello, Sweden!"
+
+# Command with one parameter and default value
+greet name="User":
+    echo "Hello, {{name}}!"
+
+# Command with multiple parameters
+deploy env="staging" version="latest":
+    echo "Deploying version {{version}} to {{env}} environment"
+
+# Command with required parameter (no default)
+build target:
+    echo "Building for target: {{target}}"
+
+# Command with mixed parameters
+test suite="unit" verbose="false" timeout="30":
+    echo "Running {{suite}} tests (verbose={{verbose}}, timeout={{timeout}}s)"
+
+# List all recipes
+list:
+    @just --list
+
+# this is a title docstring
+extralong_command_for_gui_testing_reasons target and="a_default":
+    echo "Building for target: {{target}}"

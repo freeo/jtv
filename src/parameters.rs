@@ -11,7 +11,9 @@ use crate::{
     config::{Config, ParameterConfig},
     model::{ParameterKind, Recipe},
     picker::{PathKind, Picker},
+    presentation::ResolvedColorMode,
 };
+use dialoguer::theme::{ColorfulTheme, SimpleTheme, Theme};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ParameterValue {
@@ -61,8 +63,35 @@ pub trait Prompter {
     ) -> Result<Option<Vec<String>>>;
 }
 
-#[derive(Default)]
-pub struct DialoguerPrompter;
+pub struct DialoguerPrompter {
+    color: ResolvedColorMode,
+}
+
+impl Default for DialoguerPrompter {
+    fn default() -> Self {
+        Self {
+            color: ResolvedColorMode::Plain,
+        }
+    }
+}
+
+impl DialoguerPrompter {
+    pub const fn new(color: ResolvedColorMode) -> Self {
+        Self { color }
+    }
+}
+
+pub fn dialoguer_theme(color: ResolvedColorMode) -> Box<dyn Theme> {
+    match color {
+        ResolvedColorMode::Plain => Box::new(SimpleTheme),
+        ResolvedColorMode::Color => Box::new(ColorfulTheme {
+            prompt_style: console::Style::new().for_stderr().yellow().bold(),
+            defaults_style: console::Style::new().for_stderr().green(),
+            values_style: console::Style::new().for_stderr().cyan(),
+            ..ColorfulTheme::default()
+        }),
+    }
+}
 
 impl Prompter for DialoguerPrompter {
     fn input(
@@ -71,13 +100,15 @@ impl Prompter for DialoguerPrompter {
         default: Option<&str>,
         secret: bool,
     ) -> Result<Option<String>> {
+        let theme = dialoguer_theme(self.color);
         let result = if secret {
-            dialoguer::Password::new()
+            dialoguer::Password::with_theme(theme.as_ref())
                 .with_prompt(label)
                 .allow_empty_password(default.is_some())
                 .interact()
         } else {
-            let mut prompt = dialoguer::Input::<String>::new().with_prompt(label);
+            let mut prompt =
+                dialoguer::Input::<String>::with_theme(theme.as_ref()).with_prompt(label);
             if let Some(default) = default {
                 prompt = prompt.default(default.to_owned());
             }
@@ -120,21 +151,31 @@ pub fn collect<P: Prompter, K: Picker>(
 ) -> Result<CollectedParameters> {
     let mut values = BTreeMap::new();
     let mut secret_names = Vec::new();
-    for parameter in &recipe.parameters {
+    let parameter_count = recipe.parameters.len();
+    for (parameter_index, parameter) in recipe.parameters.iter().enumerate() {
         let metadata = config.parameter(&recipe.namepath, &parameter.name);
         let secret = matches!(metadata, Some(ParameterConfig::Secret));
         if secret {
             secret_names.push(parameter.name.clone());
         }
-        let label = parameter.help.as_deref().unwrap_or(&parameter.name);
+        let label = parameter_label(parameter, metadata, parameter_index + 1, parameter_count);
         let value = if parameter.flag && parameter.value.is_some() {
             let choices = vec!["true".into(), "false".into()];
-            let answer = picker.choose(label, &choices)?.ok_or(Error::Cancelled)?;
+            let picker_label = picker_label(
+                parameter,
+                parameter_index + 1,
+                parameter_count,
+                "Choose",
+                "boolean flag",
+            );
+            let answer = picker
+                .choose(&picker_label, &choices)?
+                .ok_or(Error::Cancelled)?;
             ParameterValue::Flag(answer == "true")
         } else if !matches!(parameter.kind, ParameterKind::Singular) {
             let minimum = usize::from(matches!(parameter.kind, ParameterKind::Plus));
             let answer = prompts
-                .variadic(label, minimum, secret)?
+                .variadic(&label, minimum, secret)?
                 .ok_or(Error::Cancelled)?;
             if answer.len() < minimum {
                 return Err(Error::Message(format!(
@@ -153,12 +194,30 @@ pub fn collect<P: Prompter, K: Picker>(
                         )));
                     }
                     picker
-                        .choose(label, choices)?
+                        .choose(
+                            &picker_label(
+                                parameter,
+                                parameter_index + 1,
+                                parameter_count,
+                                "Choose",
+                                "choice",
+                            ),
+                            choices,
+                        )?
                         .ok_or(Error::Cancelled)?
                         .into()
                 }
                 Some(ParameterConfig::Boolean) => picker
-                    .choose(label, &["true".into(), "false".into()])?
+                    .choose(
+                        &picker_label(
+                            parameter,
+                            parameter_index + 1,
+                            parameter_count,
+                            "Choose",
+                            "boolean",
+                        ),
+                        &["true".into(), "false".into()],
+                    )?
                     .ok_or(Error::Cancelled)?
                     .into(),
                 Some(ParameterConfig::File) | Some(ParameterConfig::Directory) => {
@@ -168,12 +227,26 @@ pub fn collect<P: Prompter, K: Picker>(
                         PathKind::Directory
                     };
                     picker
-                        .choose_path(label, cwd, kind)?
+                        .choose_path(
+                            &picker_label(
+                                parameter,
+                                parameter_index + 1,
+                                parameter_count,
+                                "Select",
+                                if kind == PathKind::File {
+                                    "file"
+                                } else {
+                                    "directory"
+                                },
+                            ),
+                            cwd,
+                            kind,
+                        )?
                         .ok_or(Error::Cancelled)?
                         .into_os_string()
                 }
                 _ => prompts
-                    .input(label, parameter.default.as_deref(), secret)?
+                    .input(&label, parameter.default.as_deref(), secret)?
                     .ok_or(Error::Cancelled)?
                     .into(),
             };
@@ -240,4 +313,52 @@ pub fn collect<P: Prompter, K: Picker>(
         values,
         secret_names,
     })
+}
+
+fn parameter_label(
+    parameter: &crate::model::Parameter,
+    metadata: Option<&ParameterConfig>,
+    current: usize,
+    total: usize,
+) -> String {
+    let kind = match metadata {
+        Some(ParameterConfig::Secret) => "secret",
+        Some(ParameterConfig::Choice { .. }) => "choice",
+        Some(ParameterConfig::Boolean) => "boolean",
+        Some(ParameterConfig::File) => "file",
+        Some(ParameterConfig::Directory) => "directory",
+        Some(ParameterConfig::String) | None => "text",
+    };
+    let requirement = if let Some(default) = &parameter.default {
+        if matches!(metadata, Some(ParameterConfig::Secret)) {
+            "default: [REDACTED]".to_owned()
+        } else {
+            format!("default: {default}")
+        }
+    } else if parameter.default_expression.is_some() {
+        "just default".into()
+    } else if parameter.flag && parameter.value.is_some() {
+        "optional flag".into()
+    } else {
+        "required".into()
+    };
+    let help = parameter
+        .help
+        .as_deref()
+        .map(|help| format!(" — {help}"))
+        .unwrap_or_default();
+    format!(
+        "[{current}/{total}] {} ({kind}, {requirement}){help}",
+        parameter.name
+    )
+}
+
+fn picker_label(
+    parameter: &crate::model::Parameter,
+    current: usize,
+    total: usize,
+    verb: &str,
+    kind: &str,
+) -> String {
+    format!("[{current}/{total}] {verb} {} — {kind}", parameter.name)
 }

@@ -9,6 +9,7 @@ pub mod just;
 pub mod model;
 pub mod parameters;
 pub mod picker;
+pub mod presentation;
 pub mod runner;
 pub mod session;
 pub mod television;

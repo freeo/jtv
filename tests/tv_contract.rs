@@ -114,11 +114,48 @@ fn source_preview_and_one_action_use_only_opaque_callback_ids() {
         .lines()
         .find(|line| line.starts_with("source-output\t"))
         .expect("source callback output");
-    assert!(source.contains("jtv-00000000\\talpha"));
-    assert!(source.contains("jtv-00000001\\tbeta"));
+    assert!(source.contains("jtv-00000000\\t") && source.contains("alpha"));
+    assert!(source.contains("jtv-00000001\\t") && source.contains("beta"));
     assert!(events.contains("callback\t__tv-preview\tjtv-00000000"));
     assert!(events.contains("action-callback\t__tv-run\tjtv-00000000"));
-    assert!(events.contains("preview-output\talpha\\n"));
+    assert!(events.contains("preview-output\t") && events.contains("alpha"));
+}
+
+#[test]
+fn released_tv_falls_back_to_plain_rows_but_patched_tv_can_opt_into_ansi() {
+    let released = FakeTools::new();
+    released.init();
+    let output = released
+        .jtv_command()
+        .args(["--color", "always"])
+        .env("JTV_TEST_TV_MODE", "one")
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let released_records = released.records();
+    let released_source = released_records
+        .lines()
+        .find(|line| line.starts_with("source-output\t"))
+        .unwrap();
+    assert!(!released_source.contains('\x1b'));
+    assert!(released_records.contains("preview-output\t\x1b["));
+
+    let patched = FakeTools::new();
+    patched.init();
+    let output = patched
+        .jtv_command()
+        .args(["--color", "always"])
+        .env("JTV_UNSAFE_TV_ANSI_DISPLAY", "1")
+        .env("JTV_TEST_TV_MODE", "one")
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let patched_records = patched.records();
+    let patched_source = patched_records
+        .lines()
+        .find(|line| line.starts_with("source-output\t"))
+        .unwrap();
+    assert!(patched_source.contains("\x1b[0;36m"));
 }
 
 #[test]

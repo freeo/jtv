@@ -1,0 +1,138 @@
+# ELAN Interview Processing Justfile
+# For processing two SRT files (single speaker + group) into a clean transcript
+
+# Install ELAN from AUR
+install-elan:
+    paru -S elan-bin
+
+# Check if ELAN is installed and show version
+check-elan:
+    which elan || echo "ELAN not found - run 'just install-elan'"
+
+# Prepare working directory for ELAN project
+setup-workspace:
+    mkdir -p elan-project/{srt-files,output,backup}
+    echo "Workspace created in elan-project/"
+
+# Copy SRT files to workspace (modify paths as needed)
+prepare-srt-files SRT1_PATH SRT2_PATH:
+    cp "{{SRT1_PATH}}" elan-project/srt-files/speaker1.srt
+    cp "{{SRT2_PATH}}" elan-project/srt-files/group.srt
+    echo "SRT files copied to workspace"
+
+# Validate SRT files format
+validate-srt-files:
+    @echo "Checking SRT file 1 (speaker1.srt):"
+    head -20 elan-project/srt-files/speaker1.srt
+    @echo -e "\nChecking SRT file 2 (group.srt):"
+    head -20 elan-project/srt-files/group.srt
+
+# Launch ELAN GUI for manual processing
+launch-elan:
+    cd elan-project && elan &
+
+# Backup current ELAN project file
+backup-project:
+    cp elan-project/*.eaf elan-project/backup/ 2>/dev/null || echo "No EAF files to backup"
+
+# Convert exported ELAN transcript to clean chat format
+process-transcript INPUT_FILE OUTPUT_FILE:
+    #!/usr/bin/env python3
+    import re
+    import sys
+
+    # Read the exported ELAN transcript
+    with open("{{INPUT_FILE}}", 'r', encoding='utf-8') as f:
+        content = f.read()
+
+    # Process the content to create chat-like format
+    # This will need to be customized based on ELAN's actual export format
+    lines = content.split('\n')
+    chat_output = []
+
+    for line in lines:
+        if line.strip():
+            # Remove timestamps and clean up speaker identification
+            # Adjust regex patterns based on actual ELAN export format
+            clean_line = re.sub(r'\[\d{2}:\d{2}:\d{2}\.\d\]', '', line)
+            clean_line = clean_line.strip()
+            if clean_line:
+                chat_output.append(clean_line)
+
+    # Write cleaned output
+    with open("{{OUTPUT_FILE}}", 'w', encoding='utf-8') as f:
+        f.write('\n'.join(chat_output))
+
+    print(f"Processed transcript saved to {{OUTPUT_FILE}}")
+
+# Merge and sort SRT files by timestamp for reference
+merge-srt-files:
+    #!/usr/bin/env python3
+    import re
+    from datetime import datetime
+
+    def parse_srt_time(time_str):
+        # Convert SRT time format to comparable format
+        time_str = time_str.replace(',', '.')
+        return datetime.strptime(time_str, '%H:%M:%S.%f')
+
+    def parse_srt_file(filename, speaker_prefix):
+        entries = []
+        with open(filename, 'r', encoding='utf-8') as f:
+            content = f.read().strip()
+
+        blocks = content.split('\n\n')
+        for block in blocks:
+            lines = block.strip().split('\n')
+            if len(lines) >= 3:
+                # Get timestamp and text
+                time_line = lines[1]
+                text_lines = lines[2:]
+
+                # Parse start time
+                start_time = time_line.split(' --> ')[0]
+                start_dt = parse_srt_time(start_time)
+
+                # Combine text lines
+                text = ' '.join(text_lines)
+
+                entries.append((start_dt, f"{speaker_prefix}: {text}"))
+
+        return entries
+
+    # Parse both SRT files
+    speaker1_entries = parse_srt_file('elan-project/srt-files/speaker1.srt', 'Speaker1')
+    group_entries = parse_srt_file('elan-project/srt-files/group.srt', 'Group')
+
+    # Merge and sort by timestamp
+    all_entries = speaker1_entries + group_entries
+    all_entries.sort(key=lambda x: x[0])
+
+    # Write merged transcript
+    with open('elan-project/output/merged-transcript.txt', 'w', encoding='utf-8') as f:
+        for timestamp, text in all_entries:
+            f.write(f"{text}\n")
+
+    print("Merged transcript created at elan-project/output/merged-transcript.txt")
+
+# Clean up workspace
+clean-workspace:
+    rm -rf elan-project/
+    echo "Workspace cleaned"
+
+# Show help with workflow steps
+help:
+    @echo "ELAN Interview Processing Workflow:"
+    @echo "=================================="
+    @echo "1. just install-elan          - Install ELAN"
+    @echo "2. just setup-workspace       - Create working directory"
+    @echo "3. just prepare-srt-files SRT1 SRT2  - Copy your SRT files"
+    @echo "4. just validate-srt-files    - Check SRT file format"
+    @echo "5. just merge-srt-files       - Create merged reference transcript"
+    @echo "6. just launch-elan           - Open ELAN GUI for processing"
+    @echo "7. just backup-project        - Backup your work"
+    @echo "8. just process-transcript INPUT OUTPUT - Convert final output"
+    @echo ""
+    @echo "Optional:"
+    @echo "- just check-elan             - Verify ELAN installation"
+    @echo "- just clean-workspace        - Remove all project files"

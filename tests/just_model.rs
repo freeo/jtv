@@ -27,6 +27,7 @@ fn preserves_recipe_and_parameter_semantics() {
     assert_eq!(recipe.group.as_deref(), Some("dev"));
     assert_eq!(recipe.dependencies, ["prepare"]);
     assert!(recipe.quiet);
+    assert_eq!(recipe.body, ["cargo build"]);
     assert_eq!(recipe.parameters[0].default.as_deref(), Some("debug"));
     assert_eq!(recipe.parameters[1].kind, ParameterKind::Star);
     assert!(recipe.parameters[1].flag);

@@ -3,10 +3,24 @@ source: tests/tui_snapshots.rs
 expression: rendered
 ---
 viewport: 120x40
-cursor: 3,30 visible=false
+cursor: 4,37 visible=false
 alternate-screen: false
 ---
-token: [hidden]
-Commands:
+Recipe: secret
+✔ [1/1] token (secret, required) · ********
+Execution plan:
   <SANDBOX>/tools/just --justfile <SANDBOX>/project/justfile secret '[REDACTED]'
-Run selected recipe(s)? [Y/n]
+? Run selected recipe(s)? (y/n) › yes
+--- styles (non-default) ---
+0:0-8 "Recipe: " CellStyle { foreground: Default, background: Default, bold: false, dim: true, italic: false, underline: false, inverse: false }
+0:8-14 "secret" CellStyle { foreground: Indexed(6), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+1:0-1 "✔" CellStyle { foreground: Indexed(2), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+1:2-32 "[1/1] token (secret, required)" CellStyle { foreground: Indexed(3), background: Default, bold: true, dim: false, italic: false, underline: false, inverse: false }
+1:33-34 "·" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+1:35-43 "********" CellStyle { foreground: Indexed(6), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+2:0-15 "Execution plan:" CellStyle { foreground: Default, background: Default, bold: true, dim: false, italic: false, underline: false, inverse: false }
+4:0-1 "?" CellStyle { foreground: Indexed(3), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+4:2-25 "Run selected recipe(s)?" CellStyle { foreground: Indexed(3), background: Default, bold: true, dim: false, italic: false, underline: false, inverse: false }
+4:26-31 "(y/n)" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+4:32-33 "›" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+4:34-37 "yes" CellStyle { foreground: Indexed(2), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }

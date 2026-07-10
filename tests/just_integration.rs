@@ -1,8 +1,12 @@
 use std::path::PathBuf;
 
 use jtv::{
+    config::Config,
     invocation::Invocation,
     just::{load_project, render_preview},
+    presentation::{PresentationOptions, ResolvedColorMode, ResolvedIconMode},
+    session::SessionState,
+    television,
 };
 
 fn fixture_dir() -> PathBuf {
@@ -37,6 +41,8 @@ fn explicit_justfile_and_module_filter_are_honored() {
     let project = load_project(&invocation).unwrap();
     assert_eq!(project.recipes.len(), 1);
     assert_eq!(project.recipes[0].namepath, "ops::deploy");
+    let preview = render_preview(&invocation, &project.recipes[0]).unwrap();
+    assert!(preview.contains("deploy environment:"));
 }
 
 #[test]
@@ -47,6 +53,35 @@ fn preview_uses_real_just_show() {
     let project = load_project(&invocation).unwrap();
     let preview = render_preview(&invocation, project.recipe("build").unwrap()).unwrap();
     assert!(preview.contains("build target='debug': prepare"));
+}
+
+#[test]
+fn definition_preview_styles_real_just_show_without_affecting_identity() {
+    let invocation = Invocation::new(fixture_dir(), None, None, false)
+        .canonicalized()
+        .unwrap();
+    let project = load_project(&invocation).unwrap();
+    let state = SessionState::new_with_presentation(
+        invocation,
+        project,
+        Config::default(),
+        PresentationOptions {
+            color: ResolvedColorMode::Color,
+            source_color: ResolvedColorMode::Color,
+            icons: ResolvedIconMode::Ascii,
+            compact: false,
+        },
+    )
+    .unwrap();
+    let id = state
+        .selections
+        .iter()
+        .find_map(|(id, name)| (name == "build").then_some(id))
+        .unwrap();
+    let preview = television::definition_preview(&state, id).unwrap();
+    assert!(preview.contains("build target='debug': prepare"));
+    assert!(preview.contains("\x1b[0;36m"));
+    assert!(television::definition_preview(&state, "build").is_err());
 }
 
 #[test]
