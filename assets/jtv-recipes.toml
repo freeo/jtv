@@ -1,0 +1,29 @@
+[metadata]
+name = "jtv-recipes"
+description = "Browse and run Justfile recipes with jtv"
+requirements = ["jtv", "just"]
+jtv_protocol = 1
+
+[source]
+command = "jtv __tv-source"
+display = "{split:\t:1}"
+output = "{split:\t:0}"
+
+[preview]
+command = "jtv __tv-preview {split:\t:0}"
+
+[ui]
+layout = "landscape"
+
+[ui.preview_panel]
+size = 55
+header = "{split:\t:1}"
+
+[keybindings]
+enter = "actions:run"
+
+[actions.run]
+description = "Run selected recipes"
+command = "jtv __tv-run {split:\n:..|map:{split:\t:0}|join: }"
+mode = "execute"
+separator = "\n"

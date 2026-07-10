@@ -1,0 +1,9 @@
+[recipes.choose.params.environment]
+type = "choice"
+values = ["development", "staging", "production"]
+
+[recipes.pick-file.params.path]
+type = "file"
+
+[recipes.secret.params.token]
+type = "secret"

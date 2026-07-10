@@ -1,0 +1,34 @@
+set positional-arguments := true
+
+# Write a no-argument marker.
+simple:
+    @printf 'simple\n' >> "$JTV_E2E_LOG"
+
+# Capture one argument literally.
+capture value:
+    @printf 'capture:%s\n' "$1" >> "$JTV_E2E_LOG"
+
+# Capture a configured choice.
+choose environment:
+    @printf 'choose:%s\n' "$1" >> "$JTV_E2E_LOG"
+
+# Capture a configured file path.
+pick-file path:
+    @printf 'file:%s\n' "$1" >> "$JTV_E2E_LOG"
+
+# Capture a secret without exposing it in jtv's confirmation output.
+secret token:
+    @printf 'secret:%s\n' "$1" >> "$JTV_E2E_LOG"
+
+# First recipe in the deterministic queue.
+queue-a:
+    @printf 'queue-a\n' >> "$JTV_E2E_LOG"
+
+# Failing recipe stops the queue.
+queue-b-fail:
+    @printf 'queue-b-fail\n' >> "$JTV_E2E_LOG"
+    @exit 7
+
+# Must not run after queue-b-fail.
+queue-c-after:
+    @printf 'queue-c-after\n' >> "$JTV_E2E_LOG"

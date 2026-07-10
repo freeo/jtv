@@ -1,0 +1,24 @@
+{
+  "unknown_future_field": {"safe": true},
+  "warnings": ["fixture warning"],
+  "aliases": {"b": {"name": "b", "target": "build", "attributes": []}},
+  "recipes": {
+    "build": {
+      "name": "build", "namepath": "build", "doc": "Builds the app", "private": false,
+      "quiet": true, "shebang": false, "dependencies": [{"recipe": "prepare", "arguments": []}],
+      "attributes": [{"group": "dev"}], "body": [["cargo build"]],
+      "parameters": [
+        {"name": "target", "default": "debug", "kind": "singular", "flag": false, "long": null, "short": null, "help": null, "value": null, "pattern": null},
+        {"name": "features", "default": null, "kind": "star", "flag": true, "long": "features", "short": "f", "help": "Cargo features", "value": "value", "pattern": ["tuple"]}
+      ]
+    },
+    "private": {"name": "private", "namepath": "private", "private": true}
+  },
+  "modules": {
+    "ops": {
+      "module_path": "ops", "aliases": {}, "warnings": [],
+      "recipes": {"deploy": {"name": "deploy", "namepath": "ops::deploy", "doc": "Deploy", "dependencies": [], "parameters": [], "body": [], "attributes": [], "private": false}},
+      "modules": {"cloud": {"module_path": "ops::cloud", "aliases": {}, "modules": {}, "recipes": {"status": {"name": "status", "namepath": "ops::cloud::status", "parameters": [], "private": false}}}}
+    }
+  }
+}

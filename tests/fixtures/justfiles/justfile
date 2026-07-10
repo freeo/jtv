@@ -1,0 +1,11 @@
+# Build documentation
+[group('dev')]
+build target='debug': prepare
+  echo {{target}}
+
+prepare:
+  echo ready
+
+alias b := build
+
+mod ops
