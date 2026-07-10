@@ -44,21 +44,22 @@ ASCII mode uses `[recipe]`, `[core]`, `[docker]`, `[test]`, `[deploy]`, and
 
 ## Recipe rows
 
-Rows keep the archived spacing: one space after the icon and two spaces before
-compact metadata. Core recipes precede module recipes when the query is empty.
+Rows keep the archived concise shape: one space after the icon, followed by the
+recipe and its color-coded parameter/dependency tokens. Core recipes precede module recipes when the query is empty.
 Fuzzy matching may reorder results after the user types.
 
 Examples shown without color:
 
 ```text
-▶ build  target:<required> profile:debug → prepare
+▶ build target:<required> profile:debug prepare
 🐳 docker::publish  tag:latest
 [test] test::unit  filter:<required>
 ```
 
-Wide mode may include bounded metadata or a short documentation cue. Compact
-mode retains icon/label, full namepath, and required/default markers; complete
-details remain in the preview.
+Dependencies are bare bright-magenta names—no arrows or prose. Documentation,
+groups, and other explanatory metadata stay in the preview rather than diluting
+the Results scan. Compact mode retains icon/label, full namepath, and
+required/default markers; complete details remain in the preview.
 
 ## Preview hierarchy
 

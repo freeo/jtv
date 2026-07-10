@@ -34,7 +34,7 @@ fn source_rows_have_opaque_ids_and_single_lines() {
     let fields: Vec<_> = output.trim_end().split('\t').collect();
     assert_eq!(fields.len(), 3);
     validate_id(fields[0]).unwrap();
-    assert_eq!(fields[1], "[recipe] ops::deploy  — ship without");
+    assert_eq!(fields[1], "[recipe] ops::deploy");
     assert!(fields[2].contains("ship without parsing $(oops)"));
     assert!(!fields[0].contains("deploy"));
 }

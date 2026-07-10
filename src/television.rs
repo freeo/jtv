@@ -320,28 +320,24 @@ fn recipe_row(state: &SessionState, recipe: &Recipe, modular: bool) -> StyledTex
             .inline(" ", StyleRole::Plain);
     }
     push_recipe_name(&mut output, recipe);
+    let mut has_metadata = false;
     for parameter in &recipe.parameters {
-        output.inline(" ", StyleRole::Plain);
-        push_parameter_compact(&mut output, state, recipe, parameter);
+        output.inline(if has_metadata { " " } else { "  " }, StyleRole::Plain);
+        push_parameter_compact(
+            &mut output,
+            state,
+            recipe,
+            parameter,
+            state.presentation.source_color == ResolvedColorMode::Color,
+        );
+        has_metadata = true;
     }
     if !state.presentation.compact {
         for dependency in &recipe.dependencies {
             output
-                .inline("  → ", StyleRole::Dependency)
+                .inline(if has_metadata { " " } else { "  " }, StyleRole::Plain)
                 .inline(dependency, StyleRole::Dependency);
-        }
-        if let Some(group) = &recipe.group {
-            output
-                .inline("  #", StyleRole::Dim)
-                .inline(group, StyleRole::Dim);
-        }
-        if let Some(doc) = &recipe.doc {
-            let summary = doc.lines().next().unwrap_or_default().trim();
-            if !summary.is_empty() {
-                output
-                    .inline("  — ", StyleRole::Dim)
-                    .inline(summary, StyleRole::Dim);
-            }
+            has_metadata = true;
         }
     }
     output.truncate(if state.presentation.compact { 72 } else { 120 })
@@ -363,6 +359,7 @@ fn push_parameter_compact(
     state: &SessionState,
     recipe: &Recipe,
     parameter: &Parameter,
+    concise_colored: bool,
 ) {
     let spelling = parameter_spelling(parameter);
     let secret = matches!(
@@ -383,7 +380,12 @@ fn push_parameter_compact(
             .inline(":<just default>", StyleRole::DefaultValue);
     } else if parameter.flag && parameter.value.is_some() {
         output.inline(&spelling, StyleRole::ParameterName);
+    } else if concise_colored {
+        // In the colored Results language, red is the required marker. Keep
+        // the token as terse as the archived interface.
+        output.inline(&spelling, StyleRole::Required);
     } else {
+        // Plain rows cannot rely on color, so retain an explicit text cue.
         output
             .inline(&spelling, StyleRole::Required)
             .inline(":<required>", StyleRole::Required);
@@ -461,7 +463,7 @@ fn details_preview(state: &SessionState, recipe: &Recipe) -> StyledText {
     push_recipe_name(&mut signature, recipe);
     for parameter in &recipe.parameters {
         signature.inline(" ", StyleRole::Plain);
-        push_parameter_compact(&mut signature, state, recipe, parameter);
+        push_parameter_compact(&mut signature, state, recipe, parameter, false);
     }
     output
         .inline(signature.plain(), StyleRole::Signature)

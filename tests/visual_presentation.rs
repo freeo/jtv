@@ -77,13 +77,21 @@ fn styled_rows_restore_legacy_roles_and_core_first_order() {
     assert!(lines[0].contains("🔷"));
     assert!(lines[0].contains("\x1b[0;36mbuild\x1b[0m"));
     assert!(lines[0].contains("\x1b[0;91mtarget\x1b[0m"));
+    assert!(!lines[0].split('\t').nth(1).unwrap().contains("<required>"));
     assert!(!lines[0].contains("\x1b[0;95mbuild"));
     assert!(lines[0].contains("\x1b[0;95mprepare\x1b[0m"));
-    assert!(lines[0].contains("Build the application"));
+    assert!(!lines[0].split('\t').nth(1).unwrap().contains('→'));
+    assert!(
+        !lines[0]
+            .split('\t')
+            .nth(1)
+            .unwrap()
+            .contains("Build the application")
+    );
     assert!(lines[1].contains("🐳"));
     assert!(lines[1].contains("\x1b[0;94mdocker\x1b[0m::"));
     assert!(lines[1].contains("\x1b[0;36mpublish\x1b[0m"));
-    assert!(lines[1].contains("#\x1b[0m\x1b[2mrelease"));
+    assert!(!lines[1].split('\t').nth(1).unwrap().contains("release"));
     assert!(lines[1].contains("[REDACTED]"));
     assert!(!rows.contains("must-not-appear"));
     assert!(!rows.contains("\x1b]52"));
@@ -100,8 +108,8 @@ fn styled_rows_restore_legacy_roles_and_core_first_order() {
 fn plain_ascii_and_compact_modes_preserve_meaning_without_controls() {
     let state = state(ResolvedColorMode::Plain, ResolvedIconMode::Ascii, true);
     let rows = television::source_output(&state).unwrap();
-    assert!(rows.contains("[core] build target:<required>"));
-    assert!(rows.contains("[docker] docker::publish token:[REDACTED] --features:<required>*"));
+    assert!(rows.contains("[core] build  target:<required>"));
+    assert!(rows.contains("[docker] docker::publish  token:[REDACTED] --features:<required>*"));
     assert!(!rows.contains("→ prepare"));
     assert!(!rows.contains('\x1b'));
 }
