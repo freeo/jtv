@@ -298,10 +298,14 @@ impl ScreenFrame {
 
     #[allow(dead_code)]
     pub fn styled_snapshot_text(&self, sandbox_root: &Path) -> String {
+        let root = sandbox_root.to_string_lossy();
+        let styles = self
+            .non_default_style_manifest()
+            .replace(root.as_ref(), "<SANDBOX>");
         format!(
             "{}\n--- styles (non-default) ---\n{}",
             self.snapshot_text(sandbox_root),
-            self.non_default_style_manifest()
+            styles
         )
     }
 }

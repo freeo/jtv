@@ -31,6 +31,7 @@ is given; a forced replacement creates a backup.
 
 ```sh
 jtv
+jtv docker
 jtv --justfile path/to/justfile
 jtv --module docker
 jtv --dry-run
@@ -38,16 +39,41 @@ jtv --color always --icons unicode
 jtv --color never --icons ascii
 ```
 
+`jtv NAME` first opens a matching public root module. Otherwise it uses the
+first existing standalone target in this exact order: `NAME.just`,
+`NAME/justfile`, `justfiles/NAME.just`, `justfiles/NAME/justfile`. No other
+filename aliases are inferred. If several targets exist, the first still wins
+and jtv prints every match to stdout after Television exits. Use `--justfile`
+or `--module` when you want to select one explicitly; those options cannot be
+combined with `NAME`.
+
 Navigate and search using Television's normal controls. `Tab` toggles recipes in a
 multi-selection and `Escape` cancels without executing anything. Selected recipes
 run in deterministic recipe-name order and the queue stops on the first failure.
 Television 0.15.9 exposes a multi-selection as an unordered set, so toggle order is
 not available to integrations.
 
-Recipe rows show parameter requirements/defaults, dependencies, groups, and a
-bounded summary cue. The Details preview provides structured metadata and recipe
-body; `Ctrl-F` cycles to the faithful `just --show` Definition preview. `Ctrl-X`
-opens Television's action menu, including an explicit dry-run action.
+An unscoped `jtv` discovers the root project once, then recursively catalogs
+additional `justfile`, `.justfile`, and exact lowercase `*.just` files below the
+startup directory. It respects Git ignore rules, skips dependency/build trees,
+and never follows symlinks. Press `Ctrl-S` to cycle **Root → Subfolders → Modules
+→ All**. Root-level named files such as `docker.just` belong to Subfolders too;
+explicit `jtv NAME`, `--justfile`, and `--module` launches remain focused rather
+than expanding the workspace.
+
+Subfolder rows use `📁` (or `[dir]` in ASCII mode) and retain their relative
+origin, for example `📁 supabase/  migrate` and `📁 db/seed.just  reset`.
+Recipes execute through their owning absolute Justfile, so `supabase/justfile`
+runs with normal `just` semantics in `supabase/`; jtv and the invoking shell stay
+in the directory where jtv started. Invalid child files are skipped and reported
+as one warning block after Television exits; an invalid primary Justfile remains
+fatal.
+
+Recipe rows stay concise: recipe names, parameter requirements/defaults, and
+dependencies provide the visual scan cues without summaries, groups, or arrows.
+The Details preview provides structured metadata and recipe body; `Ctrl-F` cycles
+to the faithful `just --show` Definition preview. `Ctrl-X` opens Television's
+action menu, including an explicit dry-run action.
 
 `--color auto|always|never` and `--icons auto|unicode|ascii|none` are independent.
 Auto mode honors `NO_COLOR`, `TERM=dumb`, and `NO_ICONS=1`; terminals below 100
@@ -57,9 +83,13 @@ uses plain source rows until a TV build passes the capability gate. All structur
 the exact color capability is guarded by the upstream test described in the
 [testing guide](docs/testing.md).
 
-Ordinary arguments use a terminal prompt. Enumerable values and paths return to a
-Television picker. Optional project metadata in `.jtv.toml` can declare those types;
-see [configuration](docs/configuration.md).
+Ordinary arguments use a terminal prompt. Press `Tab` there to open a recursive
+Television picker rooted at the current working directory; the text already typed
+becomes its search query. Selecting replaces the prompt buffer with a relative path,
+while `Escape` returns with the text and cursor unchanged. Enumerable values and
+explicitly typed paths use their dedicated Television pickers. Optional project
+metadata in `.jtv.toml` can declare those types; see
+[configuration](docs/configuration.md).
 
 `jtv` does not write `.just_history`, `.just-tv-last-command`, or parent-shell
 history. Television's own frecency remains available.

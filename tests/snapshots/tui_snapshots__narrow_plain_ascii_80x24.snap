@@ -7,26 +7,26 @@ cursor: 1,4 visible=true
 alternate-screen: true
 ---
 ╭──────────────────────────────── jtv-recipes ─────────────────────────────────╮
-│ >                                                                    1 / 18  │
+│ >                                                                    1 / 17  │
 ╰──────────────────────────────────────────────────────────────────────────────╯
-╭────────────────────────────────── Results ───────────────────────────────────╮
-│ > [core] boolean enabled:<required>                                          │
-│   [core] capture value:<required>                                            │
-│   [core] choose environment:<required>                                       │
-│   [core] expression-default value:<just default>                             │
-│   [core] flag-options --force:disabled -t:default                            │
-│   [core] literal-default value:fallback                                      │
-│   [core] newline-choice value:<required>                                     │
-│   [core] pick-directory path:<required>                                      │
+╭────────────────────────── Root ⟨ ● ○ ○ ○ ⟩ ctrl-s ───────────────────────────╮
+│ > [core] boolean  enabled:<required>                                         │
+│   [core] capture  value:<required>                                           │
+│   [core] choose  environment:<required>                                      │
+│   [core] expression-default  value:<just default>                            │
+│   [core] flag-options  --force:disabled -t:default                           │
+│   [core] literal-default  value:fallback                                     │
+│   [core] newline-choice  value:<required>                                    │
+│   [core] pick-directory  path:<required>                                     │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─────────────────────── Recipe details ⟨ ● ○ ⟩ ctrl-f ────────────────────────╮
-│  boolean                                                                    ▲│
+│  Source: Root                                                               ▲│
+│  Justfile: <SANDBOX>/project/justfile                            █│
 │                                                                             █│
-│  Summary                                                                    █│
-│  Accept the configured boolean picker value.                                █│
+│  boolean                                                                    ║│
 │                                                                             ║│
-│  Parameters                                                                 ║│
-│  • enabled = <required>  [boolean]                                          ║│
+│  Summary                                                                    ║│
+│  Accept the configured boolean picker value.                                ║│
 │                                                                             ▼│
 ╰──────────────────────────────────────────────────────────────────────────────╯
   CHANNEL  jtv-r         Actions: ctrl-x • Help: ctrl-h                 v0.15.9

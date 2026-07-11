@@ -17,6 +17,7 @@ struct Fake {
     choices: VecDeque<Option<String>>,
     paths: VecDeque<Option<PathBuf>>,
     labels: Vec<String>,
+    completion_calls: usize,
 }
 impl Prompter for Fake {
     fn input(&mut self, label: &str, _: Option<&str>, _: bool) -> Result<Option<String>> {
@@ -26,6 +27,26 @@ impl Prompter for Fake {
     fn variadic(&mut self, label: &str, _: usize, _: bool) -> Result<Option<Vec<String>>> {
         self.labels.push(label.into());
         Ok(self.many.pop_front().unwrap())
+    }
+    fn input_with_completion(
+        &mut self,
+        label: &str,
+        default: Option<&str>,
+        _: &Path,
+        _: &mut dyn Picker,
+    ) -> Result<Option<String>> {
+        self.completion_calls += 1;
+        self.input(label, default, false)
+    }
+    fn variadic_with_completion(
+        &mut self,
+        label: &str,
+        minimum: usize,
+        _: &Path,
+        _: &mut dyn Picker,
+    ) -> Result<Option<Vec<String>>> {
+        self.completion_calls += 1;
+        self.variadic(label, minimum, false)
     }
 }
 impl Picker for Fake {
@@ -147,6 +168,10 @@ fn materializes_expression_default_when_a_later_positional_is_supplied() {
     assert_eq!(
         collected.value("second"),
         Some(&ParameterValue::Scalar("later".into()))
+    );
+    assert_eq!(
+        prompts.completion_calls, 3,
+        "both ordinary inputs and later-positional materialization support TAB"
     );
 }
 
@@ -321,4 +346,35 @@ fn prompt_labels_explain_progress_type_requirements_and_hide_secret_defaults() {
     );
     assert_eq!(picker.labels, ["[2/2] Select path — file"]);
     assert!(!format!("{:?}", prompts.labels).contains("hidden-default"));
+    assert_eq!(
+        prompts.completion_calls, 0,
+        "secrets never enable TAB paths"
+    );
+}
+
+#[test]
+fn ordinary_singular_and_variadic_strings_enable_tab_path_completion() {
+    let recipe = Recipe {
+        name: "r".into(),
+        namepath: "r".into(),
+        parameters: vec![
+            param("single", None, ParameterKind::Singular, false),
+            param("many", None, ParameterKind::Star, false),
+        ],
+        ..Recipe::default()
+    };
+    let mut prompts = Fake {
+        inputs: [Some("docs/read me.md".into())].into(),
+        many: [Some(vec!["src".into()])].into(),
+        ..Fake::default()
+    };
+    collect(
+        &recipe,
+        &Config::default(),
+        Path::new("/project"),
+        &mut prompts,
+        &mut Fake::default(),
+    )
+    .unwrap();
+    assert_eq!(prompts.completion_calls, 2);
 }

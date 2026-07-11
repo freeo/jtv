@@ -2,13 +2,28 @@
 name = "jtv-recipes"
 description = "Browse and run Justfile recipes with jtv"
 requirements = ["jtv", "just"]
-jtv_protocol = 1
+jtv_protocol = 2
 
 [source]
-command = "jtv __tv-source"
 ansi = true
 display = "{split:\t:1}"
 output = "{split:\t:0}"
+
+[[source.command]]
+name = "Root"
+run = "jtv __tv-source --view root"
+
+[[source.command]]
+name = "Subfolders"
+run = "jtv __tv-source --view subfolders"
+
+[[source.command]]
+name = "Modules"
+run = "jtv __tv-source --view modules"
+
+[[source.command]]
+name = "All"
+run = "jtv __tv-source --view all"
 
 [preview]
 command = [

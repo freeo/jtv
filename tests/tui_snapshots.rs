@@ -94,6 +94,35 @@ fn reviewed_browser_and_preview_frames() {
 }
 
 #[test]
+#[ignore = "requires Linux plus pinned television 0.15.9 and just 1.53.0; run serialized"]
+fn reviewed_workspace_source_frames() {
+    let mut scenario = RealTvScenario::launch_workspace_with_options(
+        "snapshot-workspace-sources",
+        COLUMNS,
+        ROWS,
+        &["--color", "always", "--icons", "unicode"],
+    )
+    .unwrap();
+    let root = scenario.wait("root source recipe", "simple");
+    snapshot("workspace_root_source_120x40", &scenario, &root);
+
+    let subfolders = scenario.cycle_source("Subfolders");
+    assert!(subfolders.contains("supabase/"));
+    assert!(subfolders.contains("tools.just"));
+    snapshot("workspace_subfolders_source_120x40", &scenario, &subfolders);
+
+    let modules = scenario.cycle_source("Modules");
+    assert!(modules.contains("ops::module-run"));
+    snapshot("workspace_modules_source_120x40", &scenario, &modules);
+
+    let all = scenario.cycle_source("All");
+    assert!(all.contains("supabase/"));
+    assert!(all.contains("ops::module-run"));
+    snapshot("workspace_all_source_120x40", &scenario, &all);
+    cancel_root(scenario);
+}
+
+#[test]
 #[ignore = "upstream ANSI+display capability gate; requires a patched Television binary"]
 fn patched_tv_preserves_semantic_styles_in_the_real_list_and_preview() {
     assert_eq!(

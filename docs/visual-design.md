@@ -33,14 +33,16 @@ Colors reinforce meaning; they never replace the plain-text cue.
 Unicode mode preserves the archived vocabulary:
 
 - `▶` classic recipe in a non-modular Justfile
+- `📁` recipe from a recursively discovered standalone Justfile
 - `🔷` core recipe in a modular project
 - `🐳` docker module
 - `🧪` test/testing module
 - `🚀` deploy/deployment module
 - `📦` any other module
 
-ASCII mode uses `[recipe]`, `[core]`, `[docker]`, `[test]`, `[deploy]`, and
-`[mod]`. `none` removes the leading marker without removing module text.
+ASCII mode uses `[recipe]`, `[dir]`, `[core]`, `[docker]`, `[test]`, `[deploy]`,
+and `[mod]`. `none` removes the leading marker without removing origin/module
+text.
 
 ## Recipe rows
 
@@ -52,6 +54,8 @@ Examples shown without color:
 
 ```text
 ▶ build target:<required> profile:debug prepare
+📁 supabase/  migrate environment:<required>
+📁 db/seed.just  reset
 🐳 docker::publish  tag:latest
 [test] test::unit  filter:<required>
 ```
@@ -60,6 +64,12 @@ Dependencies are bare bright-magenta names—no arrows or prose. Documentation,
 groups, and other explanatory metadata stay in the preview rather than diluting
 the Results scan. Compact mode retains icon/label, full namepath, and
 required/default markers; complete details remain in the preview.
+
+`Ctrl-S` cycles Root, Subfolders, Modules, and All. A conventional child
+`justfile`/`.justfile` is labeled by its relative directory (`supabase/`); a
+named `*.just` retains its relative filename (`db/seed.just`). Two spaces divide
+origin from recipe identity. These path labels remain present without color or
+icons, so origin never depends on decoration alone.
 
 ## Preview hierarchy
 

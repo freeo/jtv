@@ -32,6 +32,19 @@ impl RealTvScenario {
         Self::launch_with_viewport(name, 160, 40)
     }
 
+    pub fn launch_workspace(name: &str) -> io::Result<Self> {
+        Self::launch_with_mode(name, 160, 40, &[], false)
+    }
+
+    pub fn launch_workspace_with_options(
+        name: &str,
+        columns: u16,
+        rows: u16,
+        jtv_args: &[&str],
+    ) -> io::Result<Self> {
+        Self::launch_with_mode(name, columns, rows, jtv_args, false)
+    }
+
     /// Launch a real-TV scenario at an explicit character-cell viewport.
     ///
     /// Workflow tests retain their wider historical viewport, while reviewed
@@ -46,13 +59,30 @@ impl RealTvScenario {
         rows: u16,
         jtv_args: &[&str],
     ) -> io::Result<Self> {
+        Self::launch_with_mode(name, columns, rows, jtv_args, true)
+    }
+
+    fn launch_with_mode(
+        name: &str,
+        columns: u16,
+        rows: u16,
+        jtv_args: &[&str],
+        explicit_justfile: bool,
+    ) -> io::Result<Self> {
         require_real_tools()?;
         let sandbox = TestSandbox::new()?;
         copy_fixture(&sandbox)?;
         let event_log = sandbox.root().join("executions.log");
         fs::write(&event_log, [])?;
         install_channel(&sandbox, &event_log)?;
-        let command = jtv_command(&sandbox, &event_log, columns, rows, jtv_args);
+        let command = jtv_command(
+            &sandbox,
+            &event_log,
+            columns,
+            rows,
+            jtv_args,
+            explicit_justfile,
+        );
         let session = PtySession::spawn(command)?;
         let artifacts = FailureArtifacts::new(
             name,
@@ -121,6 +151,17 @@ impl RealTvScenario {
         self.wait("recipe browser", "jtv-recipes");
         self.text(query);
         self.wait("filtered recipe and preview", query)
+    }
+
+    pub fn cycle_source(&mut self, name: &str) -> ScreenFrame {
+        self.key(Key::Ctrl('s'));
+        self.wait("cycled source", name);
+        // Television 0.15.9 suppresses reloads initiated inside a 200 ms guard.
+        // Wait on terminal quiet, not a fixed sleep, before another source cycle.
+        self.session
+            .wait_for_quiet(Duration::from_millis(250), Duration::from_secs(2))
+            .unwrap_or_else(|error| self.fail(&error.to_string()));
+        self.session.frame()
     }
 
     pub fn confirm(&mut self) {
@@ -356,6 +397,7 @@ fn jtv_command(
     columns: u16,
     rows: u16,
     jtv_args: &[&str],
+    explicit_justfile: bool,
 ) -> PtyCommand {
     let force_color = jtv_args
         .windows(2)
@@ -364,10 +406,10 @@ fn jtv_command(
     for arg in jtv_args {
         command = command.arg(arg);
     }
-    command = command
-        .arg("--justfile")
-        .arg("justfile")
-        .viewport(columns, rows);
+    if explicit_justfile {
+        command = command.arg("--justfile").arg("justfile");
+    }
+    command = command.viewport(columns, rows);
     for (key, value) in scenario_environment(sandbox, event_log) {
         if force_color && key == OsStr::new("NO_COLOR") {
             continue;
@@ -435,8 +477,16 @@ fn sandbox_just_tool(sandbox: &TestSandbox, source: &Path) -> PathBuf {
 
 fn copy_fixture(sandbox: &TestSandbox) -> io::Result<()> {
     let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/e2e");
-    for name in ["justfile", ".jtv.toml", "sample.txt", "ops.just"] {
-        sandbox.write_project_file(name, fs::read(source.join(name))?)?;
+    for entry in walkdir::WalkDir::new(&source).min_depth(1) {
+        let entry = entry.map_err(io::Error::other)?;
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        let relative = entry
+            .path()
+            .strip_prefix(&source)
+            .expect("fixture entry remains below fixture root");
+        sandbox.write_project_file(relative, fs::read(entry.path())?)?;
     }
     fs::create_dir_all(sandbox.project().join("sample-directory"))?;
     sandbox.write_project_file("sample-directory/marker.txt", b"directory fixture")?;

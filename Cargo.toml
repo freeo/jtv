@@ -23,6 +23,7 @@ ctrlc = { version = "3.4", features = ["termination"] }
 dialoguer = "0.11"
 directories = "6"
 getrandom = "0.4"
+ignore = "0.4"
 semver = "1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

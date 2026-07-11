@@ -13,6 +13,19 @@ use crate::{
 
 /// Invoke `just` exactly once and normalize its JSON dump.
 pub fn load_project(invocation: &Invocation) -> Result<Project> {
+    Ok(load_project_dump(invocation)?.project)
+}
+
+/// A normalized project plus authoritative module source files from `just`.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProjectDump {
+    pub project: Project,
+    pub source: Option<std::path::PathBuf>,
+    pub module_sources: Vec<std::path::PathBuf>,
+}
+
+/// Load a project and retain source paths needed by workspace discovery.
+pub fn load_project_dump(invocation: &Invocation) -> Result<ProjectDump> {
     let mut command = Command::new(&invocation.just_binary);
     command
         .current_dir(&invocation.cwd)
@@ -38,7 +51,7 @@ pub fn load_project(invocation: &Invocation) -> Result<Project> {
             stderr: String::from_utf8_lossy(&output.stderr).trim().to_owned(),
         });
     }
-    parse_project(&output.stdout, invocation.module_filter.as_deref())
+    parse_project_dump(&output.stdout, invocation.module_filter.as_deref())
 }
 
 /// Render `just --show` output for presentation only. No semantics are parsed from it.
@@ -71,6 +84,11 @@ pub fn render_preview(invocation: &Invocation, recipe: &Recipe) -> Result<String
 
 /// Parse a dump captured from `just`. Public for fixture/contract testing.
 pub fn parse_project(json: &[u8], module_filter: Option<&str>) -> Result<Project> {
+    Ok(parse_project_dump(json, module_filter)?.project)
+}
+
+/// Parse a dump while retaining module source paths exposed by `just`.
+pub fn parse_project_dump(json: &[u8], module_filter: Option<&str>) -> Result<ProjectDump> {
     let dump: Dump = serde_json::from_slice(json)?;
     let mut project = Project {
         recipes: Vec::new(),
@@ -79,7 +97,15 @@ pub fn parse_project(json: &[u8], module_filter: Option<&str>) -> Result<Project
     flatten_dump(&dump, None, &mut project.recipes);
     resolve_alias_parameters(&mut project.recipes);
     project.recipes.sort_by(|a, b| a.namepath.cmp(&b.namepath));
-    Ok(project.filtered_by_module(module_filter))
+    let mut module_sources = Vec::new();
+    collect_module_sources(&dump, true, &mut module_sources);
+    module_sources.sort();
+    module_sources.dedup();
+    Ok(ProjectDump {
+        project: project.filtered_by_module(module_filter),
+        source: dump.source.clone(),
+        module_sources,
+    })
 }
 
 #[derive(Debug, Default, Deserialize)]
@@ -90,6 +116,18 @@ struct Dump {
     modules: BTreeMap<String, Dump>,
     module_path: String,
     warnings: Vec<String>,
+    source: Option<std::path::PathBuf>,
+}
+
+fn collect_module_sources(dump: &Dump, root: bool, output: &mut Vec<std::path::PathBuf>) {
+    if !root {
+        if let Some(source) = &dump.source {
+            output.push(source.clone());
+        }
+    }
+    for child in dump.modules.values() {
+        collect_module_sources(child, false, output);
+    }
 }
 
 #[derive(Debug, Default, Deserialize)]

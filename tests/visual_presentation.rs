@@ -5,8 +5,9 @@ use jtv::{
     invocation::Invocation,
     model::{Parameter, ParameterKind, Project, Recipe},
     presentation::{PresentationOptions, ResolvedColorMode, ResolvedIconMode},
-    session::SessionState,
+    session::{CatalogTarget, SessionState, WorkspaceCatalog},
     television,
+    workspace::WorkspaceOrigin,
 };
 
 fn parameter(name: &str, default: Option<&str>, kind: ParameterKind) -> Parameter {
@@ -16,6 +17,113 @@ fn parameter(name: &str, default: Option<&str>, kind: ParameterKind) -> Paramete
         kind,
         ..Parameter::default()
     }
+}
+
+fn workspace_state(icons: ResolvedIconMode) -> SessionState {
+    let root = CatalogTarget {
+        origin: WorkspaceOrigin::Root,
+        invocation: Invocation::new(
+            PathBuf::from("/tmp/project"),
+            Some(PathBuf::from("/tmp/project/justfile")),
+            None,
+            false,
+        ),
+        project: Project {
+            recipes: vec![
+                Recipe {
+                    name: "build".into(),
+                    namepath: "build".into(),
+                    ..Recipe::default()
+                },
+                Recipe {
+                    name: "publish".into(),
+                    namepath: "docker::publish".into(),
+                    module: Some("docker".into()),
+                    ..Recipe::default()
+                },
+            ],
+            warnings: vec![],
+        },
+        config: Config::default(),
+    };
+    let child = CatalogTarget {
+        origin: WorkspaceOrigin::Subfolder {
+            relative_justfile: PathBuf::from("supabase/justfile"),
+            label: "supabase/".into(),
+        },
+        invocation: Invocation::new(
+            PathBuf::from("/tmp/project"),
+            Some(PathBuf::from("/tmp/project/supabase/justfile")),
+            None,
+            false,
+        ),
+        project: Project {
+            recipes: vec![Recipe {
+                name: "migrate".into(),
+                namepath: "migrate".into(),
+                doc: Some("Update database schema".into()),
+                ..Recipe::default()
+            }],
+            warnings: vec![],
+        },
+        config: Config::default(),
+    };
+    SessionState::new_with_catalog(
+        WorkspaceCatalog::new(PathBuf::from("/tmp/project"), vec![root, child], vec![]),
+        PresentationOptions {
+            color: ResolvedColorMode::Plain,
+            source_color: ResolvedColorMode::Plain,
+            icons,
+            compact: false,
+        },
+    )
+    .unwrap()
+}
+
+#[test]
+fn source_views_partition_catalog_and_subfolders_keep_path_identity() {
+    let state = workspace_state(ResolvedIconMode::Unicode);
+    let root = television::source_output(&state, television::SourceView::Root).unwrap();
+    let subfolders = television::source_output(&state, television::SourceView::Subfolders).unwrap();
+    let modules = television::source_output(&state, television::SourceView::Modules).unwrap();
+    let all = television::source_output(&state, television::SourceView::All).unwrap();
+
+    assert!(root.contains("🔷 build"));
+    assert!(!root.contains("publish"));
+    assert!(!root.contains("migrate"));
+    assert!(modules.contains("🐳 docker::publish"));
+    assert!(!modules.contains("build"));
+    assert_eq!(subfolders.lines().count(), 1);
+    assert!(subfolders.contains("📁 supabase/  migrate"));
+    assert!(
+        subfolders
+            .split('\t')
+            .nth(2)
+            .unwrap()
+            .contains("supabase/justfile")
+    );
+    assert_eq!(all.lines().count(), 3);
+
+    let child_id = state
+        .catalog
+        .selections
+        .iter()
+        .find_map(|(id, selection)| (selection.target_index == 1).then_some(id))
+        .unwrap();
+    let preview = television::preview(&state, child_id).unwrap();
+    assert!(preview.contains("Source: supabase/"));
+    assert!(preview.contains("Justfile: supabase/justfile"));
+}
+
+#[test]
+fn subfolder_origin_has_ascii_and_no_icon_fallbacks() {
+    let ascii = workspace_state(ResolvedIconMode::Ascii);
+    let row = television::source_output(&ascii, television::SourceView::Subfolders).unwrap();
+    assert!(row.contains("[dir] supabase/  migrate"));
+
+    let none = workspace_state(ResolvedIconMode::None);
+    let row = television::source_output(&none, television::SourceView::Subfolders).unwrap();
+    assert!(row.contains("\tsupabase/  migrate\t"));
 }
 
 fn state(color: ResolvedColorMode, icons: ResolvedIconMode, compact: bool) -> SessionState {
@@ -71,7 +179,7 @@ fn state(color: ResolvedColorMode, icons: ResolvedIconMode, compact: bool) -> Se
 #[test]
 fn styled_rows_restore_legacy_roles_and_core_first_order() {
     let state = state(ResolvedColorMode::Color, ResolvedIconMode::Unicode, false);
-    let rows = television::source_output(&state).unwrap();
+    let rows = television::source_output(&state, television::SourceView::All).unwrap();
     let lines = rows.lines().collect::<Vec<_>>();
     assert_eq!(lines.len(), 2);
     assert!(lines[0].contains("🔷"));
@@ -107,7 +215,7 @@ fn styled_rows_restore_legacy_roles_and_core_first_order() {
 #[test]
 fn plain_ascii_and_compact_modes_preserve_meaning_without_controls() {
     let state = state(ResolvedColorMode::Plain, ResolvedIconMode::Ascii, true);
-    let rows = television::source_output(&state).unwrap();
+    let rows = television::source_output(&state, television::SourceView::All).unwrap();
     assert!(rows.contains("[core] build  target:<required>"));
     assert!(rows.contains("[docker] docker::publish  token:[REDACTED] --features:<required>*"));
     assert!(!rows.contains("→ prepare"));
@@ -118,9 +226,10 @@ fn plain_ascii_and_compact_modes_preserve_meaning_without_controls() {
 fn details_preview_is_structured_typed_and_secret_safe() {
     let state = state(ResolvedColorMode::Color, ResolvedIconMode::Unicode, false);
     let id = state
+        .catalog
         .selections
         .iter()
-        .find_map(|(id, recipe)| (recipe == "docker::publish").then_some(id))
+        .find_map(|(id, selection)| (selection.recipe_namepath == "docker::publish").then_some(id))
         .unwrap();
     let preview = television::preview(&state, id).unwrap();
     for expected in [

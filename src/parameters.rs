@@ -9,6 +9,7 @@ use std::{
 use crate::{
     Error, Result,
     config::{Config, ParameterConfig},
+    input::{EditAction, LineBuffer},
     model::{ParameterKind, Recipe},
     picker::{PathKind, Picker},
     presentation::ResolvedColorMode,
@@ -61,6 +62,28 @@ pub trait Prompter {
         minimum: usize,
         secret: bool,
     ) -> Result<Option<Vec<String>>>;
+
+    fn input_with_completion(
+        &mut self,
+        label: &str,
+        default: Option<&str>,
+        cwd: &Path,
+        picker: &mut dyn Picker,
+    ) -> Result<Option<String>> {
+        let _ = (cwd, picker);
+        self.input(label, default, false)
+    }
+
+    fn variadic_with_completion(
+        &mut self,
+        label: &str,
+        minimum: usize,
+        cwd: &Path,
+        picker: &mut dyn Picker,
+    ) -> Result<Option<Vec<String>>> {
+        let _ = (cwd, picker);
+        self.variadic(label, minimum, false)
+    }
 }
 
 pub struct DialoguerPrompter {
@@ -140,6 +163,112 @@ impl Prompter for DialoguerPrompter {
             values.push(value);
         }
     }
+
+    fn input_with_completion(
+        &mut self,
+        label: &str,
+        default: Option<&str>,
+        cwd: &Path,
+        picker: &mut dyn Picker,
+    ) -> Result<Option<String>> {
+        use console::{Term, measure_text_width};
+
+        let term = Term::stderr();
+        let mut line = LineBuffer::new("");
+        let prompt = match (self.color, default) {
+            (ResolvedColorMode::Color, Some(default)) => format!(
+                "{} {} {} ",
+                console::style(label).yellow().bold(),
+                console::style(format!("[{default}]")).green(),
+                console::style("[TAB files] ›").dim()
+            ),
+            (ResolvedColorMode::Color, None) => format!(
+                "{} {} ",
+                console::style(label).yellow().bold(),
+                console::style("[TAB files] ›").dim()
+            ),
+            (ResolvedColorMode::Plain, Some(default)) => {
+                format!("{label} [{default}] [TAB files] > ")
+            }
+            (ResolvedColorMode::Plain, None) => format!("{label} [TAB files] > "),
+        };
+
+        loop {
+            redraw_line(&term, &prompt, &line, measure_text_width)?;
+            let key = term
+                .read_key()
+                .map_err(|error| Error::Message(format!("input failed: {error}")))?;
+            match line.apply(key) {
+                EditAction::Continue => {}
+                EditAction::Submit(value) => {
+                    term.write_line("").map_err(input_error)?;
+                    return Ok(Some(if value.is_empty() {
+                        default.unwrap_or_default().to_owned()
+                    } else {
+                        value
+                    }));
+                }
+                EditAction::Cancel => {
+                    term.write_line("").map_err(input_error)?;
+                    return Ok(None);
+                }
+                EditAction::Browse { buffer, .. } => {
+                    // `read_key` restores terminal state before returning. Clear the
+                    // prompt so no raw-mode guard or terminal lock crosses into TV.
+                    term.clear_line().map_err(input_error)?;
+                    term.flush().map_err(input_error)?;
+                    if let Some(selected) =
+                        picker.complete_path("Select file or directory", cwd, &buffer)?
+                    {
+                        line.replace(&selected.to_string_lossy());
+                    }
+                }
+            }
+        }
+    }
+
+    fn variadic_with_completion(
+        &mut self,
+        label: &str,
+        minimum: usize,
+        cwd: &Path,
+        picker: &mut dyn Picker,
+    ) -> Result<Option<Vec<String>>> {
+        let mut values = Vec::new();
+        loop {
+            let prompt = format!("{label} (value {}, empty to finish)", values.len() + 1);
+            let Some(value) = self.input_with_completion(&prompt, None, cwd, picker)? else {
+                return Ok(None);
+            };
+            if value.is_empty() {
+                if values.len() >= minimum {
+                    return Ok(Some(values));
+                }
+                continue;
+            }
+            values.push(value);
+        }
+    }
+}
+
+fn input_error(error: std::io::Error) -> Error {
+    Error::Message(format!("input failed: {error}"))
+}
+
+fn redraw_line(
+    term: &console::Term,
+    prompt: &str,
+    line: &LineBuffer,
+    width: impl Fn(&str) -> usize,
+) -> Result<()> {
+    term.clear_line().map_err(input_error)?;
+    term.write_str(prompt).map_err(input_error)?;
+    term.write_str(&line.value()).map_err(input_error)?;
+    let suffix_width = width(&line.suffix());
+    if suffix_width > 0 {
+        term.move_cursor_left(suffix_width).map_err(input_error)?;
+    }
+    term.flush().map_err(input_error)
 }
 
 pub fn collect<P: Prompter, K: Picker>(
@@ -174,9 +303,12 @@ pub fn collect<P: Prompter, K: Picker>(
             ParameterValue::Flag(answer == "true")
         } else if !matches!(parameter.kind, ParameterKind::Singular) {
             let minimum = usize::from(matches!(parameter.kind, ParameterKind::Plus));
-            let answer = prompts
-                .variadic(&label, minimum, secret)?
-                .ok_or(Error::Cancelled)?;
+            let answer = if secret {
+                prompts.variadic(&label, minimum, true)?
+            } else {
+                prompts.variadic_with_completion(&label, minimum, cwd, picker)?
+            }
+            .ok_or(Error::Cancelled)?;
             if answer.len() < minimum {
                 return Err(Error::Message(format!(
                     "parameter `{}` requires at least {minimum} value(s)",
@@ -245,8 +377,12 @@ pub fn collect<P: Prompter, K: Picker>(
                         .ok_or(Error::Cancelled)?
                         .into_os_string()
                 }
+                _ if secret => prompts
+                    .input(&label, parameter.default.as_deref(), true)?
+                    .ok_or(Error::Cancelled)?
+                    .into(),
                 _ => prompts
-                    .input(&label, parameter.default.as_deref(), secret)?
+                    .input_with_completion(&label, parameter.default.as_deref(), cwd, picker)?
                     .ok_or(Error::Cancelled)?
                     .into(),
             };
@@ -294,9 +430,12 @@ pub fn collect<P: Prompter, K: Picker>(
                 parameter.help.as_deref().unwrap_or(&parameter.name)
             );
             let secret = secret_names.iter().any(|name| name == &parameter.name);
-            let answer = prompts
-                .input(&label, None, secret)?
-                .ok_or(Error::Cancelled)?;
+            let answer = if secret {
+                prompts.input(&label, None, true)?
+            } else {
+                prompts.input_with_completion(&label, None, cwd, picker)?
+            }
+            .ok_or(Error::Cancelled)?;
             if answer.is_empty() {
                 return Err(Error::Message(format!(
                     "parameter `{}` needs an explicit value before a later positional argument",

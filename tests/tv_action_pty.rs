@@ -134,3 +134,107 @@ fn nested_picker_results_are_consumed_through_the_real_tv_picker_boundary() {
         assert!(tools.records().contains("picker-source-output"));
     }
 }
+
+#[test]
+fn tab_completion_forwards_partial_query_and_replaces_the_string_buffer() {
+    let tools = FakeTools::new();
+    let selected = "docs/guide λ; $draft.md";
+    tools
+        .sandbox
+        .write_project_file(selected, b"guide\n")
+        .unwrap();
+    tools.init();
+    let mut command = PtyCommand::new(tools.jtv(), tools.sandbox.project())
+        .env("JTV_JUST", tools.just())
+        .env("JTV_TV", tools.tv())
+        .env("JTV_TEST_JTV_BIN", tools.jtv())
+        .env("JTV_TEST_RECORD", &tools.record)
+        .env("JTV_TEST_TV_MODE", "one-run")
+        .env("JTV_TEST_JUST_DUMP_MODE", "choice")
+        .env("JTV_TEST_PICKER_SELECT_DISPLAY", selected);
+    for (key, value) in tools.sandbox.environment() {
+        command = command.env(key, value);
+    }
+    let mut session = PtySession::spawn(command).unwrap();
+    session
+        .wait_for_screen("ordinary string prompt", DEADLINE, |frame| {
+            frame.contains("target")
+        })
+        .unwrap();
+    session.send_text("docs").unwrap();
+    session.send_key(Key::Tab).unwrap();
+    session
+        .wait_for_screen("completed string prompt", DEADLINE, |frame| {
+            frame.contains("docs/guide λ; $draft.md")
+        })
+        .unwrap();
+    session.send_key(Key::Enter).unwrap();
+    session
+        .wait_for_screen("confirmation after TAB completion", DEADLINE, |frame| {
+            frame.contains("Run selected recipe(s)?")
+        })
+        .unwrap();
+    session.send_key(Key::Enter).unwrap();
+    assert!(session.wait_for_exit(DEADLINE).unwrap().success());
+
+    let records = tools.records();
+    assert!(records.contains("picker-argv"));
+    assert!(records.contains("\t--input\tdocs"), "records={records}");
+    assert!(
+        records.contains("just\tchoose\tdocs/guide λ; $draft.md"),
+        "records={records}"
+    );
+    assert!(records.contains("picker-source-output"));
+}
+
+#[test]
+fn cancelling_tab_completion_preserves_partial_text_for_manual_editing() {
+    let tools = FakeTools::new();
+    tools
+        .sandbox
+        .write_project_file("docs/guide.md", b"guide\n")
+        .unwrap();
+    tools.init();
+    let mut command = PtyCommand::new(tools.jtv(), tools.sandbox.project())
+        .env("JTV_JUST", tools.just())
+        .env("JTV_TV", tools.tv())
+        .env("JTV_TEST_JTV_BIN", tools.jtv())
+        .env("JTV_TEST_RECORD", &tools.record)
+        .env("JTV_TEST_TV_MODE", "one-run")
+        .env("JTV_TEST_JUST_DUMP_MODE", "choice")
+        .env("JTV_TEST_PICKER_MODE", "cancel");
+    for (key, value) in tools.sandbox.environment() {
+        command = command.env(key, value);
+    }
+    let mut session = PtySession::spawn(command).unwrap();
+    session
+        .wait_for_screen("ordinary string prompt", DEADLINE, |frame| {
+            frame.contains("target")
+        })
+        .unwrap();
+    session.send_text("docs").unwrap();
+    session.send_key(Key::Tab).unwrap();
+    session
+        .wait_for_screen(
+            "restored prompt after nested cancellation",
+            DEADLINE,
+            |frame| frame.contains("docs"),
+        )
+        .unwrap();
+    session.send_text("-manual").unwrap();
+    session.send_key(Key::Enter).unwrap();
+    session
+        .wait_for_screen("confirmation after manual completion", DEADLINE, |frame| {
+            frame.contains("Run selected recipe(s)?")
+        })
+        .unwrap();
+    session.send_key(Key::Enter).unwrap();
+    assert!(session.wait_for_exit(DEADLINE).unwrap().success());
+
+    let records = tools.records();
+    assert!(records.contains("\t--input\tdocs"), "records={records}");
+    assert!(
+        records.contains("just\tchoose\tdocs-manual"),
+        "records={records}"
+    );
+}

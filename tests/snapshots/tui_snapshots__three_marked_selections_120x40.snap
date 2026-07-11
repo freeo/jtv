@@ -7,12 +7,15 @@ cursor: 1,10 visible=true
 alternate-screen: true
 ---
 ╭─────────────────── jtv-recipes ────────────────────╮╭──────────────── Recipe details ⟨ ● ○ ⟩ ctrl-f ─────────────────╮
-│ > queue-                                    1 / 3  ││  queue-a                                                      ▲│
-╰────────────────────────────────────────────────────╯│                                                               █│
-╭───────────────────── Results ──────────────────────╮│  Summary                                                      █│
-│ > ● 🔷 queue-a  — First recipe in the deterministi ││  First recipe in the deterministic queue.                     █│
-│   ● 🔷 queue-b-fail  — Failing recipe stops the qu ││                                                               █│
-│   ● 🔷 queue-c-after  — Must not run after queue-b ││  Recipe                                                       █│
+│ > queue-                                    1 / 3  ││  Source: Root                                                 ▲│
+╰────────────────────────────────────────────────────╯│  Justfile: <SANDBOX>/project/justfile              █│
+╭───────────── Root ⟨ ● ○ ○ ○ ⟩ ctrl-s ──────────────╮│                                                               █│
+│ > ● 🔷 queue-a                                     ││  queue-a                                                      █│
+│   ● 🔷 queue-b-fail                                ││                                                               █│
+│   ● 🔷 queue-c-after                               ││  Summary                                                      █│
+│                                                    ││  First recipe in the deterministic queue.                     █│
+│                                                    ││                                                               █│
+│                                                    ││  Recipe                                                       █│
 │                                                    ││  queue-a                                                      █│
 │                                                    ││  @printf 'queue-a\n' >> "$JTV_E2E_LOG"                        █│
 │                                                    ││                                                               █│
@@ -33,10 +36,7 @@ alternate-screen: true
 │                                                    ││                                                               █│
 │                                                    ││                                                               █│
 │                                                    ││                                                               █│
-│                                                    ││                                                               █│
-│                                                    ││                                                               █│
-│                                                    ││                                                               █│
-│                                                    ││                                                               █│
+│                                                    ││                                                               ║│
 │                                                    ││                                                               ║│
 │                                                    ││                                                               ║│
 │                                                    ││                                                               ║│

@@ -1,0 +1,9 @@
+set positional-arguments := true
+
+# Prove that an additional Justfile runs in its own directory.
+workspace-cwd:
+    @printf 'workspace-cwd:%s\n' "$PWD" >> "$JTV_E2E_LOG"
+
+# Same name as a root recipe, with distinct source identity.
+simple:
+    @printf 'subfolder-simple:%s\n' "$PWD" >> "$JTV_E2E_LOG"

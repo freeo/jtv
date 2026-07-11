@@ -4,6 +4,7 @@ pub mod cli;
 pub mod command;
 pub mod config;
 pub mod error;
+pub mod input;
 pub mod invocation;
 pub mod just;
 pub mod model;
@@ -12,6 +13,8 @@ pub mod picker;
 pub mod presentation;
 pub mod runner;
 pub mod session;
+pub mod target;
 pub mod television;
+pub mod workspace;
 
 pub use error::{Error, Result};

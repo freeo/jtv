@@ -3,24 +3,26 @@ source: tests/tui_snapshots.rs
 expression: frame.styled_snapshot_text(scenario.sandbox.root())
 ---
 viewport: 120x40
-cursor: 1,11 visible=true
+cursor: 1,4 visible=true
 alternate-screen: true
 ---
 ╭─────────────────── jtv-recipes ────────────────────╮╭──────────────── Recipe details ⟨ ● ○ ⟩ ctrl-f ─────────────────╮
-│ > capture                                   1 / 1  ││  Source: Root                                                 ▲│
+│ >                                            1 / 1 ││  Source: Root                                                 ▲│
 ╰────────────────────────────────────────────────────╯│  Justfile: <SANDBOX>/project/justfile              █│
-╭───────────── Root ⟨ ● ○ ○ ○ ⟩ ctrl-s ──────────────╮│                                                               █│
-│ > 🔷 capture  value:<required>                     ││  capture                                                      █│
+╭──────────── Modules ⟨ ○ ○ ● ○ ⟩ ctrl-s ────────────╮│                                                               █│
+│ > 📦 ops::module-run  value:module-default         ││  Module: ops                                                  █│
+│                                                    ││  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━                                 █│
+│                                                    ││  ops::module-run                                              █│
 │                                                    ││                                                               █│
 │                                                    ││  Summary                                                      █│
-│                                                    ││  Capture one argument literally.                              █│
+│                                                    ││  Run a recipe through a module namepath.                      █│
 │                                                    ││                                                               █│
 │                                                    ││  Parameters                                                   █│
-│                                                    ││  • value = <required>                                         █│
+│                                                    ││  • value = module-default                                     █│
 │                                                    ││                                                               █│
 │                                                    ││  Recipe                                                       █│
-│                                                    ││  capture value:<required>                                     █│
-│                                                    ││  @printf 'capture:%s\n' "$1" >> "$JTV_E2E_LOG"                █│
+│                                                    ││  ops::module-run value:module-default                         █│
+│                                                    ││  @printf 'module:%s\n' "$1" >> "$JTV_E2E_LOG"                 █│
 │                                                    ││                                                               █│
 │                                                    ││                                                               █│
 │                                                    ││                                                               █│
@@ -31,9 +33,7 @@ alternate-screen: true
 │                                                    ││                                                               █│
 │                                                    ││                                                               █│
 │                                                    ││                                                               █│
-│                                                    ││                                                               █│
-│                                                    ││                                                               █│
-│                                                    ││                                                               █│
+│                                                    ││                                                               ║│
 │                                                    ││                                                               ║│
 │                                                    ││                                                               ║│
 │                                                    ││                                                               ║│
@@ -58,8 +58,8 @@ alternate-screen: true
 0:102-120 "─────────────────╮" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 1:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 1:2-4 "> " CellStyle { foreground: Indexed(9), background: Default, bold: true, dim: false, italic: false, underline: false, inverse: false }
-1:4-43 "capture                                " CellStyle { foreground: Indexed(9), background: Default, bold: true, dim: false, italic: true, underline: false, inverse: false }
-1:45-52 " 1 / 1 " CellStyle { foreground: Indexed(9), background: Default, bold: false, dim: false, italic: true, underline: false, inverse: false }
+1:4-46 "                                          " CellStyle { foreground: Indexed(9), background: Default, bold: true, dim: false, italic: true, underline: false, inverse: false }
+1:46-52 " 1 / 1" CellStyle { foreground: Indexed(9), background: Default, bold: false, dim: false, italic: true, underline: false, inverse: false }
 1:53-55 "││" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 1:57-65 "Source: " CellStyle { foreground: Indexed(7), background: Default, bold: true, dim: false, italic: false, underline: false, inverse: false }
 1:65-69 "Root" CellStyle { foreground: Indexed(12), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
@@ -68,58 +68,58 @@ alternate-screen: true
 2:57-67 "Justfile: " CellStyle { foreground: Indexed(7), background: Default, bold: true, dim: false, italic: false, underline: false, inverse: false }
 2:67-104 "<SANDBOX>/project/justfile" CellStyle { foreground: Default, background: Default, bold: false, dim: true, italic: false, underline: false, inverse: false }
 2:118-120 "█│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
-3:0-20 "╭───────────── Root " CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
-3:20-31 "⟨ ● ○ ○ ○ ⟩" CellStyle { foreground: Indexed(9), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
-3:31-55 " ctrl-s ──────────────╮│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+3:0-22 "╭──────────── Modules " CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+3:22-33 "⟨ ○ ○ ● ○ ⟩" CellStyle { foreground: Indexed(9), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+3:33-55 " ctrl-s ────────────╮│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 3:118-120 "█│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 4:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 4:2-4 "> " CellStyle { foreground: Default, background: Indexed(8), bold: true, dim: false, italic: false, underline: false, inverse: false }
-4:4-7 "🔷 " CellStyle { foreground: Indexed(10), background: Indexed(8), bold: true, dim: false, italic: false, underline: false, inverse: false }
-4:7-14 "capture" CellStyle { foreground: Indexed(9), background: Indexed(8), bold: true, dim: false, italic: false, underline: false, inverse: false }
-4:14-32 "  value:<required>" CellStyle { foreground: Indexed(10), background: Indexed(8), bold: true, dim: false, italic: false, underline: false, inverse: false }
-4:32-52 "                    " CellStyle { foreground: Default, background: Indexed(8), bold: true, dim: false, italic: false, underline: false, inverse: false }
+4:4-44 "📦 ops::module-run  value:module-default" CellStyle { foreground: Indexed(10), background: Indexed(8), bold: true, dim: false, italic: false, underline: false, inverse: false }
+4:44-52 "        " CellStyle { foreground: Default, background: Indexed(8), bold: true, dim: false, italic: false, underline: false, inverse: false }
 4:53-55 "││" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
-4:57-64 "capture" CellStyle { foreground: Indexed(2), background: Default, bold: true, dim: false, italic: false, underline: false, inverse: false }
+4:57-68 "Module: ops" CellStyle { foreground: Indexed(7), background: Default, bold: true, dim: false, italic: false, underline: false, inverse: false }
 4:118-120 "█│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 5:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 5:53-55 "││" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+5:57-85 "━━━━━━━━━━━━━━━━━━━━━━━━━━━━" CellStyle { foreground: Default, background: Default, bold: false, dim: true, italic: false, underline: false, inverse: false }
 5:118-120 "█│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 6:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 6:53-55 "││" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
-6:57-64 "Summary" CellStyle { foreground: Default, background: Default, bold: true, dim: false, italic: false, underline: false, inverse: false }
+6:57-72 "ops::module-run" CellStyle { foreground: Indexed(2), background: Default, bold: true, dim: false, italic: false, underline: false, inverse: false }
 6:118-120 "█│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 7:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 7:53-55 "││" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
-7:57-88 "Capture one argument literally." CellStyle { foreground: Indexed(5), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 7:118-120 "█│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 8:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 8:53-55 "││" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+8:57-64 "Summary" CellStyle { foreground: Default, background: Default, bold: true, dim: false, italic: false, underline: false, inverse: false }
 8:118-120 "█│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 9:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 9:53-55 "││" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
-9:57-67 "Parameters" CellStyle { foreground: Default, background: Default, bold: true, dim: false, italic: false, underline: false, inverse: false }
+9:57-96 "Run a recipe through a module namepath." CellStyle { foreground: Indexed(5), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 9:118-120 "█│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 10:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 10:53-55 "││" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
-10:59-64 "value" CellStyle { foreground: Indexed(3), background: Default, bold: true, dim: false, italic: false, underline: false, inverse: false }
-10:67-77 "<required>" CellStyle { foreground: Indexed(9), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 10:118-120 "█│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 11:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 11:53-55 "││" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+11:57-67 "Parameters" CellStyle { foreground: Default, background: Default, bold: true, dim: false, italic: false, underline: false, inverse: false }
 11:118-120 "█│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 12:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 12:53-55 "││" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
-12:57-63 "Recipe" CellStyle { foreground: Default, background: Default, bold: true, dim: false, italic: false, underline: false, inverse: false }
+12:59-64 "value" CellStyle { foreground: Indexed(3), background: Default, bold: true, dim: false, italic: false, underline: false, inverse: false }
+12:67-81 "module-default" CellStyle { foreground: Indexed(2), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 12:118-120 "█│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 13:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 13:53-55 "││" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
-13:57-81 "capture value:<required>" CellStyle { foreground: Indexed(6), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 13:118-120 "█│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 14:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 14:53-55 "││" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+14:57-63 "Recipe" CellStyle { foreground: Default, background: Default, bold: true, dim: false, italic: false, underline: false, inverse: false }
 14:118-120 "█│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 15:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 15:53-55 "││" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+15:57-93 "ops::module-run value:module-default" CellStyle { foreground: Indexed(6), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 15:118-120 "█│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 16:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 16:53-55 "││" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
@@ -156,7 +156,7 @@ alternate-screen: true
 26:118-120 "█│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 27:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 27:53-55 "││" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
-27:118-120 "█│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
+27:118-120 "║│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 28:0-1 "│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 28:53-55 "││" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }
 28:118-120 "║│" CellStyle { foreground: Indexed(8), background: Default, bold: false, dim: false, italic: false, underline: false, inverse: false }

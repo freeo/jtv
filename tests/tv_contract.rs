@@ -114,10 +114,11 @@ fn source_preview_and_one_action_use_only_opaque_callback_ids() {
         .lines()
         .find(|line| line.starts_with("source-output\t"))
         .expect("source callback output");
-    assert!(source.contains("jtv-00000000\\t") && source.contains("alpha"));
-    assert!(source.contains("jtv-00000001\\t") && source.contains("beta"));
-    assert!(events.contains("callback\t__tv-preview\tjtv-00000000"));
-    assert!(events.contains("action-callback\t__tv-run\tjtv-00000000"));
+    let ids = recorded_source_ids(source);
+    assert_eq!(ids.len(), 2);
+    assert!(source.contains("alpha") && source.contains("beta"));
+    assert!(events.contains(&format!("callback\t__tv-preview\t{}", ids[0])));
+    assert!(events.contains(&format!("action-callback\t__tv-run\t{}", ids[0])));
     assert!(events.contains("preview-output\t") && events.contains("alpha"));
 }
 
@@ -177,7 +178,8 @@ fn hostile_display_metadata_is_sanitized_and_never_used_as_an_action_key() {
         .unwrap();
     assert!(source.contains("Unicode λ"));
     assert!(!source.contains("\\tquotes"));
-    assert!(events.contains("action-callback\t__tv-run\tjtv-00000000"));
+    let id = &recorded_source_ids(source)[0];
+    assert!(events.contains(&format!("action-callback\t__tv-run\t{id}")));
     assert!(!events.contains("action-callback\t__tv-run\tdeploy"));
 }
 
@@ -187,16 +189,37 @@ fn unordered_many_are_normalized_and_duplicate_ids_execute_once() {
     tools.init();
     assert!(launch(&tools, "many").status.success());
     let events = tools.records();
-    assert!(events.contains("action-callback\t__tv-run\tjtv-00000001\tjtv-00000000"));
+    let source = events
+        .lines()
+        .find(|line| line.starts_with("source-output\t"))
+        .unwrap();
+    let ids = recorded_source_ids(source);
+    assert!(events.contains(&format!(
+        "action-callback\t__tv-run\t{}\t{}",
+        ids[1], ids[0]
+    )));
 
     let duplicate = FakeTools::new();
     duplicate.init();
     assert!(launch(&duplicate, "duplicate").status.success());
-    assert!(
-        duplicate
-            .records()
-            .contains("action-callback\t__tv-run\tjtv-00000000\tjtv-00000000")
-    );
+    let events = duplicate.records();
+    let source = events
+        .lines()
+        .find(|line| line.starts_with("source-output\t"))
+        .unwrap();
+    let id = &recorded_source_ids(source)[0];
+    assert!(events.contains(&format!("action-callback\t__tv-run\t{id}\t{id}")));
+}
+
+fn recorded_source_ids(source_event: &str) -> Vec<String> {
+    source_event
+        .strip_prefix("source-output\t")
+        .expect("source output event")
+        .split("\\n")
+        .filter(|row| !row.is_empty())
+        .filter_map(|row| row.split("\\t").next())
+        .map(str::to_owned)
+        .collect()
 }
 
 #[test]
@@ -294,6 +317,38 @@ fn nested_picker_nonzero_status_is_exact() {
         .output()
         .unwrap();
     assert_eq!(output.status.code(), Some(17));
+}
+
+#[test]
+fn nested_picker_selects_a_requested_display_but_returns_only_its_opaque_id() {
+    let tools = FakeTools::new();
+    let picker_state = tools.sandbox.root().join("picker.json");
+    fs::write(
+        &picker_state,
+        r#"{"entries":[{"id":"pick-00000000","display":"docs","value":"docs"},{"id":"pick-00000001","display":"docs/guide.md","value":"docs/guide.md"}]}"#,
+    )
+    .unwrap();
+    let output = tools
+        .sandbox
+        .command(tools.tv())
+        .args(["--source-command", "ignored", "--input", "docs"])
+        .env("JTV_TEST_RECORD", &tools.record)
+        .env("JTV_TEST_JTV_BIN", tools.jtv())
+        .env("JTV_PICKER_STATE", picker_state)
+        .env("JTV_TEST_PICKER_SELECT_DISPLAY", "docs/guide.md")
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout).trim(),
+        "pick-00000001"
+    );
+    let records = tools.records();
+    assert!(records.contains("picker-argv\t--source-command\tignored\t--input\tdocs"));
+    assert!(
+        records
+            .contains("picker-source-output\tpick-00000000\\tdocs\\npick-00000001\\tdocs/guide.md")
+    );
 }
 
 #[test]

@@ -24,9 +24,19 @@ The suite is deliberately layered:
    non-default VT style runs. Semantic assertions remain authoritative;
    snapshots make presentation drift visible.
 
-Escape cancels Television-owned recipe and nested-picker screens. Dialoguer-owned
-scalar and secret prompts use Ctrl-C cancellation; both paths are exercised and
-must leave no execution or temporary state behind.
+Escape cancels Television-owned recipe and nested-picker screens. Ordinary scalar
+prompts also exercise the `Tab` handoff to nested Television: tests prove exact
+initial-query argv, opaque selection IDs, relative-path replacement, cancellation
+preserving the edit buffer, and terminal restoration. Ctrl-C cancels scalar and
+secret prompts; every cancellation path must leave no execution or temporary state
+behind.
+
+Workspace workflows additionally drive `Ctrl-S` through Root, Subfolders,
+Modules, All, and wraparound. Fixtures include both `supabase/justfile` and a
+root-level `tools.just`; the tests prove path-qualified rows, duplicate recipe
+identity across sources, deterministic cross-source execution, and that a child
+recipe observes its Justfile directory. The traced `just` wrapper also makes it
+possible to assert that source cycling performs no new project dumps.
 
 The reusable harness lives under `tests/support/`. On failure it can write only
 sanitized diagnostics beneath `target/jtv-test-artifacts/<scenario>/`: metadata,
@@ -110,9 +120,13 @@ unbounded descendant that inherited the preview pipe.
 | Ctrl-C and subsequent shell command | `ctrl_c_root_and_nested_leave_no_state` and `terminal_is_usable_after_interrupt` |
 | Literal shell metacharacters | `scalar_defaults_alias_module_and_variadics` |
 | Choice and file pickers | `nested_choice_boolean_file_and_directory_pickers` |
+| Ordinary-string `Tab` path completion | `tab_completes_an_ordinary_string_with_a_recursive_relative_path` and `tab_completion_forwards_partial_query_and_replaces_the_string_buffer` |
+| `Tab` picker cancellation preserves input | `escape_from_tab_picker_preserves_partial_input_and_restores_the_prompt` and `cancelling_tab_completion_preserves_partial_text_for_manual_editing` |
 | Secret redaction | `secret_is_hidden_and_confirmation_is_redacted` plus the redacted confirmation snapshot |
 | Three selections, stop on failure, exit 7 | `multi_select_is_deterministic_and_stops_on_first_failure` |
 | Temporary/history-file absence | Every workflow's `assert_clean` lifecycle check |
+| Root/Subfolders/Modules/All source cycling | `workspace_sources_cycle_and_subfolder_recipe_runs_in_its_directory` and `tv_source_cycle_contract` |
+| Duplicate names across Justfiles | `cross_source_marks_keep_duplicate_recipe_identity_and_run_in_catalog_order` |
 
 The cache workflow traces every real `just` invocation and asserts the complete
 four-process set: one version probe, one compatibility dump, one project dump,

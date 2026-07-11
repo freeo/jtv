@@ -74,9 +74,10 @@ fn definition_preview_styles_real_just_show_without_affecting_identity() {
     )
     .unwrap();
     let id = state
+        .catalog
         .selections
         .iter()
-        .find_map(|(id, name)| (name == "build").then_some(id))
+        .find_map(|(id, selection)| (selection.recipe_namepath == "build").then_some(id))
         .unwrap();
     let preview = television::definition_preview(&state, id).unwrap();
     assert!(preview.contains("build target='debug': prepare"));

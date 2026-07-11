@@ -30,7 +30,7 @@ fn state() -> SessionState {
 #[test]
 fn source_rows_have_opaque_ids_and_single_lines() {
     let state = state();
-    let output = television::source_output(&state).unwrap();
+    let output = television::source_output(&state, television::SourceView::Root).unwrap();
     let fields: Vec<_> = output.trim_end().split('\t').collect();
     assert_eq!(fields.len(), 3);
     validate_id(fields[0]).unwrap();
@@ -42,9 +42,10 @@ fn source_rows_have_opaque_ids_and_single_lines() {
 #[test]
 fn styled_source_rows_keep_ansi_only_in_display_and_opaque_ids_in_output() {
     let base = state();
+    let primary = base.primary_target().unwrap();
     let state = SessionState::new_with_presentation(
-        base.invocation,
-        base.project,
+        primary.invocation.clone(),
+        primary.project.clone(),
         Config::default(),
         PresentationOptions {
             color: ResolvedColorMode::Color,
@@ -54,7 +55,7 @@ fn styled_source_rows_keep_ansi_only_in_display_and_opaque_ids_in_output() {
         },
     )
     .unwrap();
-    let output = television::source_output(&state).unwrap();
+    let output = television::source_output(&state, television::SourceView::Root).unwrap();
     let fields: Vec<_> = output.trim_end().split('\t').collect();
     assert_eq!(fields.len(), 3);
     validate_id(fields[0]).unwrap();
@@ -83,7 +84,12 @@ fn session_is_private_persistent_and_removed_on_drop() {
     let session = SessionFile::create(&state).unwrap();
     let path = session.path().to_path_buf();
     assert_eq!(
-        load(&path).unwrap().resolve("jtv-00000000").unwrap(),
+        load(&path)
+            .unwrap()
+            .resolve(state.catalog.selections.keys().next().unwrap())
+            .unwrap()
+            .recipe
+            .namepath,
         "ops::deploy"
     );
     #[cfg(unix)]
@@ -101,7 +107,8 @@ fn session_is_private_persistent_and_removed_on_drop() {
 #[test]
 fn preview_uses_only_resolved_recipe_data() {
     let state = state();
-    let preview = television::preview(&state, "jtv-00000000").unwrap();
+    let id = state.catalog.selections.keys().next().unwrap();
+    let preview = television::preview(&state, id).unwrap();
     assert!(preview.contains("ops::deploy"));
     assert!(preview.contains("echo safe"));
     assert!(television::preview(&state, "ops::deploy").is_err());
@@ -121,7 +128,16 @@ fn embedded_channel_has_constant_safe_templates() {
         channel["actions"]["dry-run"]["mode"].as_str(),
         Some("execute")
     );
-    assert!(asset.contains("command = \"jtv __tv-source\""));
+    let commands = channel["source"]["command"].as_array().unwrap();
+    assert_eq!(commands.len(), 4);
+    assert_eq!(commands[0]["name"].as_str(), Some("Root"));
+    assert_eq!(
+        commands[0]["run"].as_str(),
+        Some("jtv __tv-source --view root")
+    );
+    assert_eq!(commands[1]["name"].as_str(), Some("Subfolders"));
+    assert_eq!(commands[2]["name"].as_str(), Some("Modules"));
+    assert_eq!(commands[3]["name"].as_str(), Some("All"));
     assert!(asset.contains("ansi = true"));
     assert!(asset.contains("\"jtv __tv-preview {split:\\t:0}\""));
     assert!(asset.contains("jtv __tv-preview --definition {split:\\t:0}"));

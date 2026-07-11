@@ -72,7 +72,7 @@ fn fake_tv() -> i32 {
         return setting_i32("JTV_TEST_TV_VERSION_STATUS", 0);
     }
     if args.first().is_some_and(|arg| arg == "--source-command") {
-        return nested_picker();
+        return nested_picker(&args);
     }
     top_level_tv()
 }
@@ -142,17 +142,24 @@ fn callback_inherit(args: &[&str]) -> i32 {
     status.code().unwrap_or(130)
 }
 
-fn nested_picker() -> i32 {
+fn nested_picker(args: &[String]) -> i32 {
     record_environment("picker-env");
+    record("picker-argv", args);
     let source = callback(&["__picker-source"], None);
     record("picker-source-output", std::slice::from_ref(&source.1));
     if source.0 != 0 {
         return source.0;
     }
+    let requested_display = env::var("JTV_TEST_PICKER_SELECT_DISPLAY").ok();
     let id = source
         .1
         .lines()
-        .next()
+        .find(|row| {
+            requested_display.as_ref().is_none_or(|requested| {
+                row.split_once('\t')
+                    .is_some_and(|(_, display)| display == requested)
+            })
+        })
         .and_then(|row| row.split('\t').next())
         .unwrap_or("");
     match setting("JTV_TEST_PICKER_MODE", "select").as_str() {

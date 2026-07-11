@@ -14,6 +14,7 @@ fn help_and_version_describe_the_rust_application() {
         .stdout(predicate::str::contains(
             "Interactive Justfile runner powered by Television",
         ))
+        .stdout(predicate::str::contains("[NAME]"))
         .stdout(predicate::str::contains("doctor"));
 
     Command::cargo_bin("jtv")
@@ -22,6 +23,18 @@ fn help_and_version_describe_the_rust_application() {
         .assert()
         .success()
         .stdout(predicate::str::contains("jtv 0.4.0"));
+}
+
+#[test]
+fn positional_target_conflicts_with_explicit_targeting_flags() {
+    for flag in ["--justfile", "--module"] {
+        Command::cargo_bin("jtv")
+            .unwrap()
+            .args(["docker", flag, "explicit"])
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("cannot be used with"));
+    }
 }
 
 #[test]
@@ -148,5 +161,85 @@ mod unix {
         assert!(recorded.contains("--cable-dir"));
         assert!(recorded.contains("--no-remote"));
         assert!(recorded.lines().nth(1).is_some_and(|path| !path.is_empty()));
+    }
+
+    #[test]
+    fn named_target_prefers_root_module_and_warns_after_television_exits() {
+        let temp = tempdir().unwrap();
+        let cable = temp.path().join("cable");
+        let just = temp.path().join("just-bin");
+        let tv = temp.path().join("tv-bin");
+        fs::write(temp.path().join("justfile"), "mod docker\n").unwrap();
+        fs::write(temp.path().join("docker.just"), "build:\n  true\n").unwrap();
+        script(
+            &just,
+            "if [ \"${1:-}\" = --version ]; then printf 'just 1.53.0\\n'; else printf '%s\\n' '{\"recipes\":{\"probe\":{\"name\":\"probe\",\"namepath\":\"probe\"}},\"modules\":{\"docker\":{\"module_path\":\"docker\",\"recipes\":{\"build\":{\"name\":\"build\",\"namepath\":\"docker::build\"}}}}}'; fi",
+        );
+        script(
+            &tv,
+            "if [ \"${1:-}\" = --version ]; then printf 'television 0.15.9\\n'; else printf 'TV EXITED\\n'; fi",
+        );
+
+        Command::cargo_bin("jtv")
+            .unwrap()
+            .env("JTV_TV_CABLE_DIR", &cable)
+            .arg("init")
+            .assert()
+            .success();
+
+        Command::cargo_bin("jtv")
+            .unwrap()
+            .current_dir(temp.path())
+            .env("JTV_TV_CABLE_DIR", &cable)
+            .env("JTV_JUST", &just)
+            .env("JTV_TV", &tv)
+            .arg("docker")
+            .assert()
+            .success()
+            .stdout(predicate::eq(
+                "TV EXITED\nWARNING: 'docker' resolves to multiple targets:\n  module docker\n  docker.just\n",
+            ));
+    }
+
+    #[test]
+    fn invalid_child_justfile_warns_only_after_television_exits() {
+        let temp = tempdir().unwrap();
+        let cable = temp.path().join("cable");
+        let just = temp.path().join("just-bin");
+        let tv = temp.path().join("tv-bin");
+        let root = temp.path().join("justfile");
+        fs::write(&root, "root:\n  true\n").unwrap();
+        fs::write(temp.path().join("broken.just"), "not valid just syntax").unwrap();
+        script(
+            &just,
+            &format!(
+                "if [ \"${{1:-}}\" = --version ]; then printf 'just 1.53.0\\n'; exit; fi\ncase \" $* \" in *' - '*) printf '%s\\n' '{{\"recipes\":{{\"probe\":{{\"name\":\"probe\",\"namepath\":\"probe\"}}}}}}'; exit;; *' --justfile {}/broken.just '*) printf 'broken child\\n' >&2; exit 9;; esac\nprintf '%s\\n' '{{\"source\":\"{}\",\"recipes\":{{\"root\":{{\"name\":\"root\",\"namepath\":\"root\"}}}}}}'",
+                temp.path().display(),
+                root.display()
+            ),
+        );
+        script(
+            &tv,
+            "if [ \"${1:-}\" = --version ]; then printf 'television 0.15.9\\n'; else printf 'TV EXITED\\n'; fi",
+        );
+
+        Command::cargo_bin("jtv")
+            .unwrap()
+            .env("JTV_TV_CABLE_DIR", &cable)
+            .arg("init")
+            .assert()
+            .success();
+
+        Command::cargo_bin("jtv")
+            .unwrap()
+            .current_dir(temp.path())
+            .env("JTV_TV_CABLE_DIR", &cable)
+            .env("JTV_JUST", &just)
+            .env("JTV_TV", &tv)
+            .assert()
+            .success()
+            .stdout(predicate::str::starts_with("TV EXITED\nWARNING:"))
+            .stdout(predicate::str::contains("broken.just"))
+            .stdout(predicate::str::contains("broken child"));
     }
 }

@@ -412,6 +412,7 @@ fn unicode_locale(locale: &str) -> bool {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Icon {
     Standalone,
+    Subfolder,
     Core,
     Docker,
     Test,
@@ -424,12 +425,14 @@ impl Icon {
         match (mode, self) {
             (ResolvedIconMode::None, _) => "",
             (ResolvedIconMode::Unicode, Self::Standalone) => "▶",
+            (ResolvedIconMode::Unicode, Self::Subfolder) => "📁",
             (ResolvedIconMode::Unicode, Self::Core) => "🔷",
             (ResolvedIconMode::Unicode, Self::Docker) => "🐳",
             (ResolvedIconMode::Unicode, Self::Test) => "🧪",
             (ResolvedIconMode::Unicode, Self::Deploy) => "🚀",
             (ResolvedIconMode::Unicode, Self::Module) => "📦",
             (ResolvedIconMode::Ascii, Self::Standalone) => "[recipe]",
+            (ResolvedIconMode::Ascii, Self::Subfolder) => "[dir]",
             (ResolvedIconMode::Ascii, Self::Core) => "[core]",
             (ResolvedIconMode::Ascii, Self::Docker) => "[docker]",
             (ResolvedIconMode::Ascii, Self::Test) => "[test]",

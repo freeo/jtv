@@ -6,6 +6,7 @@ use std::{
     process::{Command, ExitStatus, Stdio},
 };
 
+use clap::ValueEnum;
 use semver::Version;
 
 #[cfg(unix)]
@@ -21,7 +22,7 @@ use std::{
 use crate::{
     Error, Result,
     channel::CHANNEL_NAME,
-    config::ParameterConfig,
+    config::{Config, ParameterConfig},
     just,
     model::{Parameter, ParameterKind, Recipe},
     presentation::{
@@ -29,7 +30,17 @@ use crate::{
         sanitize_multiline, validate_sgr_only,
     },
     session::{SESSION_ENV, SessionFile, SessionState, validate_id},
+    workspace::WorkspaceOrigin,
 };
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
+pub enum SourceView {
+    #[default]
+    Root,
+    Subfolders,
+    Modules,
+    All,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SourceRow {
@@ -53,42 +64,53 @@ impl SourceRow {
     }
 }
 
-pub fn rows(state: &SessionState) -> Vec<SourceRow> {
+pub fn rows(state: &SessionState, view: SourceView) -> Vec<SourceRow> {
     let modular = state
-        .project
-        .recipes
-        .iter()
-        .any(|recipe| recipe.module.is_some());
+        .primary_target()
+        .map(|target| {
+            target
+                .project
+                .recipes
+                .iter()
+                .any(|recipe| recipe.module.is_some())
+        })
+        .unwrap_or(false);
     let mut recipes = state
+        .catalog
         .selections
         .iter()
-        .filter_map(|(id, namepath)| state.project.recipe(namepath).map(|recipe| (id, recipe)))
+        .filter_map(|(id, _)| state.resolve(id).ok().map(|resolved| (id, resolved)))
+        .filter(|(_, resolved)| matches_view(&resolved.target.origin, resolved.recipe, view))
         .collect::<Vec<_>>();
     recipes.sort_by(|(_, left), (_, right)| {
         (
-            left.module.is_some(),
-            left.module.as_deref(),
-            left.name.as_str(),
+            origin_order(&left.target.origin),
+            origin_path(&left.target.origin),
+            left.recipe.module.is_some(),
+            left.recipe.module.as_deref(),
+            left.recipe.name.as_str(),
         )
             .cmp(&(
-                right.module.is_some(),
-                right.module.as_deref(),
-                right.name.as_str(),
+                origin_order(&right.target.origin),
+                origin_path(&right.target.origin),
+                right.recipe.module.is_some(),
+                right.recipe.module.as_deref(),
+                right.recipe.name.as_str(),
             ))
     });
     recipes
         .into_iter()
-        .map(|(id, recipe)| SourceRow {
+        .map(|(id, resolved)| SourceRow {
             id: id.clone(),
-            display: recipe_row(state, recipe, modular),
-            search: searchable(recipe),
+            display: recipe_row(state, resolved.target, resolved.recipe, modular),
+            search: searchable(&resolved.target.origin, resolved.recipe),
         })
         .collect()
 }
 
-pub fn source_output(state: &SessionState) -> Result<String> {
+pub fn source_output(state: &SessionState, view: SourceView) -> Result<String> {
     let mut output = String::new();
-    for row in rows(state) {
+    for row in rows(state, view) {
         writeln!(output, "{}", row.encode(state.presentation.source_color)?)
             .expect("String writes cannot fail");
     }
@@ -96,25 +118,29 @@ pub fn source_output(state: &SessionState) -> Result<String> {
 }
 
 pub fn preview(state: &SessionState, id: &str) -> Result<String> {
-    let recipe = state
-        .project
-        .recipe(state.resolve(id)?)
-        .ok_or_else(|| Error::InvalidSelection(id.into()))?;
-    Ok(details_preview(state, recipe).render(state.presentation.color))
+    let resolved = state.resolve(id)?;
+    Ok(details_preview(resolved.target, resolved.recipe).render(state.presentation.color))
 }
 
 pub fn definition_preview(state: &SessionState, id: &str) -> Result<String> {
-    let recipe = state
-        .project
-        .recipe(state.resolve(id)?)
-        .ok_or_else(|| Error::InvalidSelection(id.into()))?;
-    let definition = sanitize_multiline(&just::render_preview(&state.invocation, recipe)?);
+    let resolved = state.resolve(id)?;
+    let recipe = resolved.recipe;
+    let definition =
+        sanitize_multiline(&just::render_preview(&resolved.target.invocation, recipe)?);
+    let mut origin = origin_preview(resolved.target);
     if state.presentation.color == ResolvedColorMode::Color && recipe.shebang {
         if let Some(highlighted) = highlight_with_bat(recipe, &definition) {
-            return Ok(highlighted);
+            return Ok(format!(
+                "{}{highlighted}",
+                origin.render(state.presentation.color)
+            ));
         }
     }
-    Ok(style_definition(recipe, &definition).render(state.presentation.color))
+    let styled = style_definition(recipe, &definition);
+    for span in styled.spans() {
+        origin.push(span.clone());
+    }
+    Ok(origin.render(state.presentation.color))
 }
 
 #[cfg(not(unix))]
@@ -310,14 +336,28 @@ pub fn version_is_supported(version: &Version) -> bool {
     version >= &Version::new(0, 15, 9)
 }
 
-fn recipe_row(state: &SessionState, recipe: &Recipe, modular: bool) -> StyledText {
+fn recipe_row(
+    state: &SessionState,
+    target: &crate::session::CatalogTarget,
+    recipe: &Recipe,
+    modular: bool,
+) -> StyledText {
     let mut output = StyledText::new();
-    let icon = Icon::for_module(module_root(recipe.module.as_deref()), modular)
-        .render(state.presentation.icons);
+    let icon = if matches!(target.origin, WorkspaceOrigin::Subfolder { .. }) {
+        Icon::Subfolder
+    } else {
+        Icon::for_module(module_root(recipe.module.as_deref()), modular)
+    }
+    .render(state.presentation.icons);
     if !icon.is_empty() {
         output
             .inline(icon, StyleRole::Plain)
             .inline(" ", StyleRole::Plain);
+    }
+    if let WorkspaceOrigin::Subfolder { label, .. } = &target.origin {
+        output
+            .inline(label, StyleRole::Dim)
+            .inline("  ", StyleRole::Plain);
     }
     push_recipe_name(&mut output, recipe);
     let mut has_metadata = false;
@@ -325,7 +365,7 @@ fn recipe_row(state: &SessionState, recipe: &Recipe, modular: bool) -> StyledTex
         output.inline(if has_metadata { " " } else { "  " }, StyleRole::Plain);
         push_parameter_compact(
             &mut output,
-            state,
+            &target.config,
             recipe,
             parameter,
             state.presentation.source_color == ResolvedColorMode::Color,
@@ -343,6 +383,57 @@ fn recipe_row(state: &SessionState, recipe: &Recipe, modular: bool) -> StyledTex
     output.truncate(if state.presentation.compact { 72 } else { 120 })
 }
 
+fn matches_view(origin: &WorkspaceOrigin, recipe: &Recipe, view: SourceView) -> bool {
+    match view {
+        SourceView::Root => matches!(origin, WorkspaceOrigin::Root) && recipe.module.is_none(),
+        SourceView::Subfolders => matches!(origin, WorkspaceOrigin::Subfolder { .. }),
+        SourceView::Modules => matches!(origin, WorkspaceOrigin::Root) && recipe.module.is_some(),
+        SourceView::All => true,
+    }
+}
+
+fn origin_order(origin: &WorkspaceOrigin) -> u8 {
+    match origin {
+        WorkspaceOrigin::Root => 0,
+        WorkspaceOrigin::Subfolder { .. } => 1,
+    }
+}
+
+fn origin_path(origin: &WorkspaceOrigin) -> &str {
+    match origin {
+        WorkspaceOrigin::Root => "",
+        WorkspaceOrigin::Subfolder { label, .. } => label,
+    }
+}
+
+fn origin_preview(target: &crate::session::CatalogTarget) -> StyledText {
+    let mut output = StyledText::new();
+    let (source, justfile) = match &target.origin {
+        WorkspaceOrigin::Root => (
+            "Root",
+            target
+                .invocation
+                .justfile
+                .as_deref()
+                .map(|path| path.display().to_string())
+                .unwrap_or_else(|| "auto-discovered".into()),
+        ),
+        WorkspaceOrigin::Subfolder {
+            relative_justfile,
+            label,
+        } => (label.as_str(), relative_justfile.display().to_string()),
+    };
+    output
+        .inline("Source: ", StyleRole::ModuleHeader)
+        .inline(source, StyleRole::Attribute)
+        .newline()
+        .inline("Justfile: ", StyleRole::ModuleHeader)
+        .inline(justfile, StyleRole::Dim)
+        .newline()
+        .newline();
+    output
+}
+
 fn push_recipe_name(output: &mut StyledText, recipe: &Recipe) {
     if let Some(module) = &recipe.module {
         output
@@ -356,14 +447,14 @@ fn push_recipe_name(output: &mut StyledText, recipe: &Recipe) {
 
 fn push_parameter_compact(
     output: &mut StyledText,
-    state: &SessionState,
+    config: &Config,
     recipe: &Recipe,
     parameter: &Parameter,
     concise_colored: bool,
 ) {
     let spelling = parameter_spelling(parameter);
     let secret = matches!(
-        state.config.parameter(&recipe.namepath, &parameter.name),
+        config.parameter(&recipe.namepath, &parameter.name),
         Some(ParameterConfig::Secret)
     );
     if let Some(default) = &parameter.default {
@@ -401,8 +492,8 @@ fn push_parameter_compact(
     }
 }
 
-fn details_preview(state: &SessionState, recipe: &Recipe) -> StyledText {
-    let mut output = StyledText::new();
+fn details_preview(target: &crate::session::CatalogTarget, recipe: &Recipe) -> StyledText {
+    let mut output = origin_preview(target);
     if let Some(module) = &recipe.module {
         output
             .inline("Module: ", StyleRole::ModuleHeader)
@@ -437,7 +528,7 @@ fn details_preview(state: &SessionState, recipe: &Recipe) -> StyledText {
     if !recipe.parameters.is_empty() {
         section_heading(&mut output, "Parameters");
         for parameter in &recipe.parameters {
-            push_parameter_detail(&mut output, state, recipe, parameter);
+            push_parameter_detail(&mut output, &target.config, recipe, parameter);
         }
     }
     if !recipe.dependencies.is_empty() {
@@ -463,7 +554,7 @@ fn details_preview(state: &SessionState, recipe: &Recipe) -> StyledText {
     push_recipe_name(&mut signature, recipe);
     for parameter in &recipe.parameters {
         signature.inline(" ", StyleRole::Plain);
-        push_parameter_compact(&mut signature, state, recipe, parameter, false);
+        push_parameter_compact(&mut signature, &target.config, recipe, parameter, false);
     }
     output
         .inline(signature.plain(), StyleRole::Signature)
@@ -480,12 +571,12 @@ fn section_heading(output: &mut StyledText, name: &str) {
 
 fn push_parameter_detail(
     output: &mut StyledText,
-    state: &SessionState,
+    config: &Config,
     recipe: &Recipe,
     parameter: &Parameter,
 ) {
-    let config = state.config.parameter(&recipe.namepath, &parameter.name);
-    let secret = matches!(config, Some(ParameterConfig::Secret));
+    let parameter_config = config.parameter(&recipe.namepath, &parameter.name);
+    let secret = matches!(parameter_config, Some(ParameterConfig::Secret));
     output
         .inline("• ", StyleRole::Plain)
         .inline(parameter_spelling(parameter), StyleRole::ParameterName);
@@ -504,7 +595,7 @@ fn push_parameter_detail(
             .inline("<required>", StyleRole::Required);
     }
     let mut labels = Vec::new();
-    if let Some(kind) = config_kind(config) {
+    if let Some(kind) = config_kind(parameter_config) {
         labels.push(kind);
     }
     match parameter.kind {
@@ -561,8 +652,18 @@ fn module_style(module: Option<&str>) -> StyleRole {
     }
 }
 
-fn searchable(recipe: &Recipe) -> String {
+fn searchable<'a>(origin: &'a WorkspaceOrigin, recipe: &'a Recipe) -> String {
     let mut values = vec![recipe.namepath.as_str()];
+    if let WorkspaceOrigin::Subfolder {
+        relative_justfile,
+        label,
+    } = origin
+    {
+        values.push(label);
+        if let Some(path) = relative_justfile.to_str() {
+            values.push(path);
+        }
+    }
     values.extend(recipe.doc.as_deref());
     values.extend(recipe.group.as_deref());
     values.extend(recipe.module.as_deref());
