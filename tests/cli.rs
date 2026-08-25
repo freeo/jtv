@@ -122,7 +122,37 @@ mod unix {
             .success()
             .stdout(predicate::str::contains("[OK] just 1.53.0"))
             .stdout(predicate::str::contains("[OK] television 0.15.9"))
-            .stdout(predicate::str::contains("[OK] channel"));
+            .stdout(predicate::str::contains("[OK] channel"))
+            .stdout(predicate::str::contains(
+                "shell history integration inactive",
+            ));
+
+        Command::cargo_bin("jtv")
+            .unwrap()
+            .env("JTV_TV_CABLE_DIR", &cable)
+            .env("JTV_JUST", &just)
+            .env("JTV_TV", &tv)
+            .env("JTV_SHELL_INTEGRATION", "zsh")
+            .env("JTV_HISTORY_PROTOCOL", "1")
+            .env("JTV_HISTORY_SESSION", "jtv-history.doctor-test")
+            .env("JTV_ZSH_AUTOSUGGESTIONS", "1")
+            .env("JTV_ATUIN_BIN", "/usr/bin/atuin")
+            .env("ATUIN_SESSION", "doctor-session")
+            .arg("doctor")
+            .assert()
+            .success()
+            .stdout(predicate::str::contains(
+                "[OK] shell history integration zsh",
+            ))
+            .stdout(predicate::str::contains(
+                "[OK] zsh-autosuggestions history strategy detected",
+            ))
+            .stdout(predicate::str::contains(
+                "[OK] Atuin shell history lifecycle enabled",
+            ))
+            .stdout(predicate::str::contains(
+                "configured secret parameters are silently omitted",
+            ));
     }
 
     #[test]

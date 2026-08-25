@@ -24,6 +24,12 @@ The suite is deliberately layered:
    non-default VT style runs. Semantic assertions remain authoritative;
    snapshots make presentation drift visible.
 
+Shell-history contracts add an isolated interactive zsh layer: generated-wrapper
+tests prove exact status/streams, literal history import and persistence; a real
+zsh-autosuggestions history strategy consumes the inserted command; fake and
+isolated real Atuin tests prove start/end argv, cwd, status, and duration. Secret
+sentinels must be absent from the native sink, Atuin, transcripts, and artifacts.
+
 Escape cancels Television-owned recipe and nested-picker screens. Ordinary scalar
 prompts also exercise the `Tab` handoff to nested Television: tests prove exact
 initial-query argv, opaque selection IDs, relative-path replacement, cancellation

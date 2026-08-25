@@ -61,6 +61,11 @@ fn fake_just() -> i32 {
         }
         return 0;
     }
+    if let Ok(recipe) = env::var("JTV_TEST_JUST_FAIL_RECIPE") {
+        if args.last().is_some_and(|arg| arg == &recipe) {
+            return setting_i32("JTV_TEST_JUST_FAIL_STATUS", 23);
+        }
+    }
     setting_i32("JTV_TEST_JUST_RUN_STATUS", 0)
 }
 

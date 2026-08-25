@@ -804,3 +804,95 @@ fn terminal_is_usable_after_interrupt() {
             })
     );
 }
+
+#[test]
+#[ignore = "requires pinned real television, just, zsh; run via test-tui"]
+fn opt_in_zsh_wrapper_records_typed_jtv_then_real_composed_command() {
+    use pty::{PtyCommand, PtySession};
+
+    scenarios::require_real_tools().unwrap();
+    let mut setup = RealTvScenario::launch("zsh-history-integration-setup").unwrap();
+    setup.session.terminate().unwrap();
+    let sandbox = &setup.sandbox;
+    let jtv = env!("CARGO_BIN_EXE_jtv");
+    let init = Command::new(jtv)
+        .args(["shell-init", "zsh"])
+        .output()
+        .unwrap();
+    assert!(init.status.success());
+    let init_path = sandbox.root().join("jtv-init.zsh");
+    fs::write(&init_path, init.stdout).unwrap();
+    let histfile = sandbox.root().join("zsh-history");
+    let host_path = std::env::var_os("PATH").unwrap();
+    let jtv_dir = std::path::Path::new(jtv).parent().unwrap();
+    let callback_path = std::env::join_paths(
+        std::iter::once(jtv_dir.to_path_buf()).chain(std::env::split_paths(&host_path)),
+    )
+    .unwrap();
+    let mut command = PtyCommand::new("zsh", sandbox.project())
+        .arg("-f")
+        .arg("-i")
+        .env("PS1", "JTV-ZSH> ")
+        .viewport(160, 40);
+    for (key, value) in sandbox.environment() {
+        command = command.env(key, value);
+    }
+    command = command
+        .env("PATH", callback_path)
+        .env("JTV_JUST", "just")
+        .env("JTV_TV", scenarios::real_tool_path("tv").unwrap())
+        .env("JTV_E2E_LOG", sandbox.root().join("executions.log"));
+    let mut shell = PtySession::spawn(command).unwrap();
+    shell
+        .wait_for_screen("zsh prompt", Duration::from_secs(10), |frame| {
+            frame.contains("JTV-ZSH>")
+        })
+        .unwrap();
+    shell
+        .send_text(&format!(
+            "source '{}'; HISTFILE='{}'; SAVEHIST=100; HISTSIZE=100",
+            init_path.display(),
+            histfile.display()
+        ))
+        .unwrap();
+    shell.send_key(Key::Enter).unwrap();
+    shell
+        .wait_for_screen("configured zsh prompt", Duration::from_secs(10), |frame| {
+            frame.contains("JTV-ZSH>")
+        })
+        .unwrap();
+    shell.send_text("jtv --justfile justfile").unwrap();
+    shell.send_key(Key::Enter).unwrap();
+    shell
+        .wait_for_screen("real Television recipe", Duration::from_secs(15), |frame| {
+            frame.contains("jtv-recipes") && frame.contains("simple")
+        })
+        .unwrap();
+    shell.send_text("simple").unwrap();
+    shell.send_key(Key::Enter).unwrap();
+    shell
+        .wait_for_screen(
+            "history execution confirmation",
+            Duration::from_secs(15),
+            |frame| frame.contains("Run selected recipe(s)?"),
+        )
+        .unwrap();
+    shell.send_key(Key::Enter).unwrap();
+    shell
+        .wait_for_screen("zsh restored after jtv", Duration::from_secs(15), |frame| {
+            frame.contains("JTV-ZSH>")
+        })
+        .unwrap();
+    shell.send_text("exit").unwrap();
+    shell.send_key(Key::Enter).unwrap();
+    assert_status(shell.wait_for_exit(Duration::from_secs(10)).unwrap(), 0);
+
+    let history = fs::read_to_string(histfile).unwrap();
+    let typed = history.find("jtv --justfile justfile").unwrap();
+    let composed = history.find("just --justfile").unwrap();
+    assert!(typed < composed, "history={history:?}");
+    assert!(
+        history[composed..].contains(" simple"),
+        "history={history:?}"
+    );
+}

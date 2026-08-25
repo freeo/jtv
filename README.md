@@ -91,8 +91,34 @@ explicitly typed paths use their dedicated Television pickers. Optional project
 metadata in `.jtv.toml` can declare those types; see
 [configuration](docs/configuration.md).
 
-`jtv` does not write `.just_history`, `.just-tv-last-command`, or parent-shell
-history. Television's own frecency remains available.
+Standalone `jtv` does not write `.just_history`, `.just-tv-last-command`, or
+parent-shell history. Television's own frecency remains available.
+
+### Optional zsh history integration
+
+To make commands executed through jtv available to zsh recall,
+zsh-autosuggestions, and Atuin, add this explicit line to `.zshrc`:
+
+```zsh
+eval "$(jtv shell-init zsh)"
+```
+
+jtv never edits `.zshrc`. Without this wrapper, behavior is unchanged. With it,
+history remains additive:
+
+```text
+jtv
+just --justfile /project/justfile deploy
+```
+
+Multi-selection adds one entry per command actually attempted, in jtv's
+deterministic execution order (Television 0.15.9 does not expose mark order).
+Successful, failed, and dry-run attempts are recorded; declined, cancelled, and
+unreached commands are not. When Atuin is active, matching records include the
+real cwd, exit status, and duration. Commands that emit a parameter explicitly
+configured as `type = "secret"` are silently omitted from both histories—there
+is no guessed-secret detection and no redacted placeholder. Remove the eval line
+to disable the integration.
 
 ## Development
 

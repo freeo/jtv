@@ -71,3 +71,9 @@ test-all: fmt-check lint test-fast test-contract
     just verify-release-artifacts
     cargo +1.85.0 check --locked --all-targets --all-features
     cargo audit
+
+build:
+  cargo build --release
+
+install:
+  install -m 0755 target/release/jtv ~/.local/bin/jtv

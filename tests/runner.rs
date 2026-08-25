@@ -1,11 +1,11 @@
 #[cfg(unix)]
 use jtv::runner::ProcessExecutor;
 use jtv::{
-    Result,
+    Error, Result,
     command::CommandPlan,
-    runner::{Executor, run_queue},
+    runner::{AttemptOutcome, ExecutionObserver, Executor, run_queue, run_queue_observed},
 };
-use std::{collections::VecDeque, path::PathBuf};
+use std::{collections::VecDeque, path::PathBuf, time::Duration};
 
 struct Fake {
     statuses: VecDeque<i32>,
@@ -23,6 +23,7 @@ fn plan(name: &str) -> CommandPlan {
         cwd: PathBuf::from("."),
         args: vec![name.into()],
         redacted_args: vec![name.into()],
+        contains_secret: false,
     }
 }
 
@@ -49,6 +50,78 @@ fn empty_and_successful_queues_return_success() {
     assert_eq!(
         run_queue(&[plan("one"), plan("two")], &mut fake).unwrap(),
         0
+    );
+}
+
+#[derive(Default)]
+struct Observer {
+    events: Vec<String>,
+    durations: Vec<Duration>,
+}
+
+impl ExecutionObserver for Observer {
+    fn before(&mut self, plan: &CommandPlan) {
+        self.events
+            .push(format!("before:{}", plan.args[0].to_string_lossy()));
+    }
+
+    fn after(&mut self, plan: &CommandPlan, outcome: AttemptOutcome<'_>, duration: Duration) {
+        let outcome = match outcome {
+            AttemptOutcome::Exit(status) => format!("exit:{status}"),
+            AttemptOutcome::Error(error) => format!("error:{error}"),
+        };
+        self.events.push(format!(
+            "after:{}:{outcome}",
+            plan.args[0].to_string_lossy()
+        ));
+        self.durations.push(duration);
+    }
+}
+
+#[test]
+fn observer_brackets_each_real_attempt_and_respects_early_failure() {
+    let mut fake = Fake {
+        statuses: [0, 23, 0].into(),
+        seen: vec![],
+    };
+    let mut observer = Observer::default();
+    assert_eq!(
+        run_queue_observed(
+            &[plan("one"), plan("two"), plan("never")],
+            &mut fake,
+            &mut observer,
+        )
+        .unwrap(),
+        23
+    );
+    assert_eq!(
+        observer.events,
+        [
+            "before:one",
+            "after:one:exit:0",
+            "before:two",
+            "after:two:exit:23"
+        ]
+    );
+    assert_eq!(observer.durations.len(), 2);
+}
+
+struct Broken;
+
+impl Executor for Broken {
+    fn execute(&mut self, _plan: &CommandPlan) -> Result<i32> {
+        Err(Error::Message("spawn exploded".into()))
+    }
+}
+
+#[test]
+fn observer_receives_executor_errors_before_the_error_is_returned() {
+    let mut observer = Observer::default();
+    let error = run_queue_observed(&[plan("broken")], &mut Broken, &mut observer).unwrap_err();
+    assert_eq!(error.to_string(), "spawn exploded");
+    assert_eq!(
+        observer.events,
+        ["before:broken", "after:broken:error:spawn exploded"]
     );
 }
 
@@ -79,6 +152,7 @@ fn process_executor_preserves_os_arguments_without_shell_reinterpretation() {
             "line1\nline2".into(),
         ],
         redacted_args: vec![],
+        contains_secret: false,
     };
     let status = ProcessExecutor.execute(&plan).unwrap();
     assert_eq!(status, 0);

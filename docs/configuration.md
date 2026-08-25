@@ -30,6 +30,12 @@ Supported types are:
 - `file`: a Television file picker rooted at the project directory.
 - `directory`: a Television directory picker rooted at the project directory.
 
+`secret` is also the exact boundary for optional shell-history integration. If
+an executed command emits a parameter configured as secret, jtv adds no
+synthetic zsh or Atuin entry for that command. It does not guess from parameter
+names or values, and it does not add a `[REDACTED]` command. Sensitive parameters
+must therefore be declared explicitly.
+
 The `Tab` completion hook applies only to ordinary non-secret strings, including
 each variadic string value. It does not replace the dedicated behavior of `secret`,
 `choice`, `boolean`, `file`, or `directory` parameters.

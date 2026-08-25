@@ -32,3 +32,12 @@ diagnostics; it is never executed.
 Child execution passes an absolute `--justfile` as an OS argument and leaves the
 jtv process cwd at the startup root. `just` therefore applies its own documented
 Justfile-directory semantics without a shell `cd` or process-wide cwd mutation.
+
+Optional shell history is an execution observer, not a standalone side effect.
+`jtv shell-init zsh` emits a static wrapper that creates an owner-only temporary
+sink and sets a private marker inherited across jtv → Television → `__tv-run`.
+The callback records an executable zsh serialization only after an eligible
+command attempt. The wrapper imports it with zsh builtins, so the child never
+edits parent-shell memory or `$HISTFILE` directly. When an active Atuin session is
+detected, the observer uses Atuin's public `history start`/`history end` lifecycle
+around the real process. Both paths are bounded, best-effort, and status-neutral.

@@ -157,6 +157,143 @@ fn secret_is_only_redacted_in_display_not_executable_argv() {
     assert_eq!(plan.args.last().unwrap(), "top secret");
     assert!(!plan.display_redacted().contains("top secret"));
     assert!(plan.display_redacted().contains("REDACTED"));
+    assert!(plan.contains_secret);
+    assert_eq!(plan.history_command_zsh().unwrap(), None);
+}
+
+#[test]
+fn only_an_emitted_configured_secret_suppresses_history() {
+    let recipe = Recipe {
+        name: "r".into(),
+        namepath: "r".into(),
+        parameters: vec![
+            parameter("token", Some("configured-default"), false, None),
+            parameter("later", Some("tail"), false, None),
+        ],
+        ..Recipe::default()
+    };
+    let omitted_secret = CollectedParameters::new(
+        BTreeMap::from([
+            (
+                "token".into(),
+                ParameterValue::Scalar("configured-default".into()),
+            ),
+            ("later".into(), ParameterValue::Scalar("tail".into())),
+        ]),
+        vec!["token".into()],
+    );
+    let plan = build_plan(
+        &Invocation::new(".".into(), None, None, false),
+        &recipe,
+        &omitted_secret,
+    )
+    .unwrap();
+    assert_eq!(plan.args, vec!["r"]);
+    assert!(!plan.contains_secret);
+    assert!(plan.history_command_zsh().unwrap().is_some());
+
+    let materialized_secret = CollectedParameters::new(
+        BTreeMap::from([
+            (
+                "token".into(),
+                ParameterValue::Scalar("configured-default".into()),
+            ),
+            ("later".into(), ParameterValue::Scalar("changed".into())),
+        ]),
+        vec!["token".into()],
+    );
+    let plan = build_plan(
+        &Invocation::new(".".into(), None, None, false),
+        &recipe,
+        &materialized_secret,
+    )
+    .unwrap();
+    assert_eq!(plan.args, vec!["r", "configured-default", "changed"]);
+    assert!(plan.contains_secret);
+    assert_eq!(plan.history_command_zsh().unwrap(), None);
+}
+
+#[test]
+fn emitted_secret_flag_suppresses_history_even_without_a_value_argument() {
+    let recipe = Recipe {
+        name: "r".into(),
+        namepath: "r".into(),
+        parameters: vec![parameter("private_mode", None, true, None)],
+        ..Recipe::default()
+    };
+    let values = CollectedParameters::new(
+        BTreeMap::from([("private_mode".into(), ParameterValue::Flag(true))]),
+        vec!["private_mode".into()],
+    );
+    let plan = build_plan(
+        &Invocation::new(".".into(), None, None, false),
+        &recipe,
+        &values,
+    )
+    .unwrap();
+    assert_eq!(plan.args, vec!["r", "--private-mode"]);
+    assert!(plan.contains_secret);
+    assert_eq!(plan.history_command_zsh().unwrap(), None);
+}
+
+#[cfg(unix)]
+#[test]
+fn zsh_history_command_round_trips_adversarial_and_non_utf8_argv() {
+    use std::{os::unix::ffi::OsStringExt, process::Command};
+
+    let args = vec![
+        "%s\\0".into(),
+        "".into(),
+        "a b".into(),
+        "'single'".into(),
+        "$(touch NO)".into(),
+        "line1\nline2".into(),
+        "λ".into(),
+        OsString::from_vec(vec![0xff, b'f']),
+    ];
+    let plan = jtv::command::CommandPlan {
+        program: "printf".into(),
+        cwd: ".".into(),
+        args: args.clone(),
+        redacted_args: vec![],
+        contains_secret: false,
+    };
+    let command = plan.history_command_zsh().unwrap().unwrap();
+    let output = Command::new("zsh")
+        .args(["-f", "-c", &command])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let expected = args
+        .iter()
+        .skip(1)
+        .flat_map(|arg| {
+            let mut bytes = arg.clone().into_vec();
+            bytes.push(0);
+            bytes
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(output.stdout, expected);
+}
+
+#[cfg(unix)]
+#[test]
+fn zsh_history_command_rejects_nul_bytes() {
+    use std::os::unix::ffi::OsStringExt;
+
+    let plan = jtv::command::CommandPlan {
+        program: "just".into(),
+        cwd: ".".into(),
+        args: vec![OsString::from_vec(vec![b'a', 0, b'b'])],
+        redacted_args: vec![],
+        contains_secret: false,
+    };
+    assert!(
+        plan.history_command_zsh()
+            .unwrap_err()
+            .to_string()
+            .contains("NUL")
+    );
 }
 
 #[test]

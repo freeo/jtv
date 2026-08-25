@@ -8,7 +8,7 @@ use std::{
     process::{Command, Stdio},
 };
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use dialoguer::Confirm;
 use semver::Version;
 
@@ -24,7 +24,7 @@ use crate::{
     presentation::{
         ColorMode, IconMode, PresentationOptions, ResolvedColorMode, StyleRole, StyledText,
     },
-    runner::{ProcessExecutor, run_queue},
+    runner::{ProcessExecutor, run_queue_observed},
     session::{CatalogTarget, SessionFile, SessionState, WorkspaceCatalog},
     target::{self, ResolvedTarget, TargetKind},
     television,
@@ -78,6 +78,11 @@ enum CliCommand {
     },
     /// Check `just`, Television, and channel compatibility.
     Doctor,
+    /// Print an optional shell integration for sourcing.
+    ShellInit {
+        #[arg(value_enum)]
+        shell: Shell,
+    },
     #[command(name = "__tv-source", hide = true)]
     TvSource {
         #[arg(long, value_enum, default_value_t = television::SourceView::Root)]
@@ -99,12 +104,18 @@ enum CliCommand {
     PickerSource,
 }
 
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum Shell {
+    Zsh,
+}
+
 pub fn run() -> Result<i32> {
     crate::cleanup::install_signal_handler()?;
     let cli = Cli::parse();
     match cli.command {
         Some(CliCommand::Init { force }) => init(force),
         Some(CliCommand::Doctor) => doctor(),
+        Some(CliCommand::ShellInit { shell }) => shell_init(shell),
         Some(CliCommand::TvSource { view }) => tv_source(view),
         Some(CliCommand::TvPreview { definition, id }) => tv_preview(&id, definition),
         Some(CliCommand::TvRun { dry_run, ids }) => tv_run(&ids, dry_run),
@@ -118,6 +129,17 @@ pub fn run() -> Result<i32> {
             cli.icons,
         ),
     }
+}
+
+fn shell_init(shell: Shell) -> Result<i32> {
+    match shell {
+        Shell::Zsh => print!("{}", crate::shell::zsh_init()),
+    }
+    io::stdout().flush().map_err(|source| Error::Write {
+        path: PathBuf::from("<stdout>"),
+        source,
+    })?;
+    Ok(0)
 }
 
 fn invocation(
@@ -211,7 +233,34 @@ fn doctor() -> Result<i32> {
         }
     }
 
+    doctor_history_integration();
+
     Ok(if healthy { 0 } else { 1 })
+}
+
+fn doctor_history_integration() {
+    if env::var_os("JTV_SHELL_INTEGRATION").as_deref() != Some(std::ffi::OsStr::new("zsh"))
+        || env::var_os("JTV_HISTORY_PROTOCOL").as_deref() != Some(std::ffi::OsStr::new("1"))
+        || env::var_os("JTV_HISTORY_SESSION").is_none()
+    {
+        println!(
+            "[INFO] shell history integration inactive; enable with `eval \"$(jtv shell-init zsh)\"`"
+        );
+        return;
+    }
+
+    println!("[OK] shell history integration zsh");
+    if env::var_os("JTV_ZSH_AUTOSUGGESTIONS").as_deref() == Some(std::ffi::OsStr::new("1")) {
+        println!("[OK] zsh-autosuggestions history strategy detected");
+    } else {
+        println!("[INFO] zsh-autosuggestions not detected in this shell");
+    }
+    if env::var_os("ATUIN_SESSION").is_some() && env::var_os("JTV_ATUIN_BIN").is_some() {
+        println!("[OK] Atuin shell history lifecycle enabled");
+    } else {
+        println!("[INFO] Atuin shell session not detected");
+    }
+    println!("[INFO] commands containing configured secret parameters are silently omitted");
 }
 
 fn launch(
@@ -521,7 +570,11 @@ fn tv_run(ids: &[String], dry_run: bool) -> Result<i32> {
     if !confirmed {
         return Ok(0);
     }
-    run_queue(&plans, &mut ProcessExecutor)
+    run_queue_observed(
+        &plans,
+        &mut ProcessExecutor,
+        &mut crate::history::HistoryObserver::from_environment(),
+    )
 }
 
 fn selection_label(selected: &crate::session::ResolvedSelection<'_>) -> String {
