@@ -238,13 +238,15 @@ mod unix {
         let just = temp.path().join("just-bin");
         let tv = temp.path().join("tv-bin");
         let root = temp.path().join("justfile");
+        let broken = temp.path().join("broken").join("justfile");
         fs::write(&root, "root:\n  true\n").unwrap();
-        fs::write(temp.path().join("broken.just"), "not valid just syntax").unwrap();
+        fs::create_dir(broken.parent().unwrap()).unwrap();
+        fs::write(&broken, "not valid just syntax").unwrap();
         script(
             &just,
             &format!(
-                "if [ \"${{1:-}}\" = --version ]; then printf 'just 1.53.0\\n'; exit; fi\ncase \" $* \" in *' - '*) printf '%s\\n' '{{\"recipes\":{{\"probe\":{{\"name\":\"probe\",\"namepath\":\"probe\"}}}}}}'; exit;; *' --justfile {}/broken.just '*) printf 'broken child\\n' >&2; exit 9;; esac\nprintf '%s\\n' '{{\"source\":\"{}\",\"recipes\":{{\"root\":{{\"name\":\"root\",\"namepath\":\"root\"}}}}}}'",
-                temp.path().display(),
+                "if [ \"${{1:-}}\" = --version ]; then printf 'just 1.53.0\\n'; exit; fi\nchild_justfile='{}'\nprevious=\nfor argument in \"$@\"; do if [ \"$argument\" = - ]; then printf '%s\\n' '{{\"recipes\":{{\"probe\":{{\"name\":\"probe\",\"namepath\":\"probe\"}}}}}}'; exit; fi; if [ \"$previous\" = --justfile ] && [ \"$argument\" = \"$child_justfile\" ]; then printf 'broken child\\n' >&2; exit 9; fi; previous=$argument; done\nprintf '%s\\n' '{{\"source\":\"{}\",\"recipes\":{{\"root\":{{\"name\":\"root\",\"namepath\":\"root\"}}}}}}'",
+                broken.display(),
                 root.display()
             ),
         );
@@ -269,7 +271,7 @@ mod unix {
             .assert()
             .success()
             .stdout(predicate::str::starts_with("TV EXITED\nWARNING:"))
-            .stdout(predicate::str::contains("broken.just"))
+            .stdout(predicate::str::contains("broken/justfile"))
             .stdout(predicate::str::contains("broken child"));
     }
 }
