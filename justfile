@@ -56,7 +56,8 @@ check: fmt-check lint test
 e2e:
     bash tests/e2e/run.sh
 
-ci: check
+ci: fmt-check lint test-fast test-contract
+    cargo test --all-features --test pty_harness -- --test-threads=1
     cargo build --release
 
 # Complete local gate; requires pinned just/TV, Rust 1.85, and cargo-audit.
@@ -86,5 +87,6 @@ release version:
     [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "usage: just release 0.5.0" >&2; exit 2; }
     [[ "$(cargo pkgid --locked -p jtv)" == *"#${version}" ]] || { echo "Cargo.toml version does not match ${version}" >&2; exit 1; }
     [[ -z "$(git status --porcelain)" ]] || { echo "working tree must be clean" >&2; exit 1; }
+    just ci
     git tag "v${version}"
     git push origin "v${version}"

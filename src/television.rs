@@ -78,8 +78,8 @@ pub fn rows(state: &SessionState, view: SourceView) -> Vec<SourceRow> {
     let mut recipes = state
         .catalog
         .selections
-        .iter()
-        .filter_map(|(id, _)| state.resolve(id).ok().map(|resolved| (id, resolved)))
+        .keys()
+        .filter_map(|id| state.resolve(id).ok().map(|resolved| (id, resolved)))
         .filter(|(_, resolved)| matches_view(&resolved.target.origin, resolved.recipe, view))
         .collect::<Vec<_>>();
     recipes.sort_by(|(_, left), (_, right)| {

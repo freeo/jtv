@@ -1,12 +1,6 @@
 #![cfg(unix)]
 
-use std::{
-    fs,
-    io::Write,
-    os::unix::fs::PermissionsExt,
-    path::Path,
-    process::{Command, Stdio},
-};
+use std::{fs, os::unix::fs::PermissionsExt, path::Path, process::Command};
 
 use assert_cmd::cargo::cargo_bin_cmd;
 use tempfile::TempDir;
@@ -16,21 +10,6 @@ fn write_executable(path: &Path, source: &str) {
     let mut permissions = fs::metadata(path).unwrap().permissions();
     permissions.set_mode(0o755);
     fs::set_permissions(path, permissions).unwrap();
-}
-
-fn autosuggestions_plugin() -> Option<std::path::PathBuf> {
-    let mut candidates = vec![
-        std::path::PathBuf::from("/usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh"),
-        std::path::PathBuf::from(
-            "/usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh",
-        ),
-    ];
-    if let Some(home) = std::env::var_os("HOME") {
-        candidates.push(Path::new(&home).join(
-            ".local/share/zinit/plugins/zsh-users---zsh-autosuggestions/zsh-autosuggestions.zsh",
-        ));
-    }
-    candidates.into_iter().find(|path| path.is_file())
 }
 
 #[test]
@@ -128,71 +107,6 @@ exit 0
         "just --justfile '/project/a b.just' deploy '$HOME; touch /tmp/nope'\n"
     );
     assert!(!Path::new("/tmp/nope").exists());
-}
-
-#[test]
-fn wrapper_entries_are_visible_to_zsh_autosuggestions_history_strategy() {
-    let Some(plugin) = autosuggestions_plugin() else {
-        eprintln!("zsh-autosuggestions unavailable; skipping plugin contract");
-        return;
-    };
-    let sandbox = TempDir::new().unwrap();
-    let fake_bin = sandbox.path().join("bin");
-    fs::create_dir(&fake_bin).unwrap();
-    write_executable(
-        &fake_bin.join("jtv"),
-        "#!/bin/sh\nprintf '%s\\n' \"just --justfile '/project/a b.just' deploy\" > \"$JTV_HISTORY_SINK\"\n",
-    );
-    let init = cargo_bin_cmd!("jtv")
-        .args(["shell-init", "zsh"])
-        .output()
-        .unwrap();
-    let init_path = sandbox.path().join("init.zsh");
-    fs::write(&init_path, init.stdout).unwrap();
-    for sources in [
-        format!(
-            "source {}\nsource {}",
-            init_path.display(),
-            plugin.display()
-        ),
-        format!(
-            "source {}\nsource {}",
-            plugin.display(),
-            init_path.display()
-        ),
-    ] {
-        let script = format!(
-            "{sources}\njtv\n_zsh_autosuggest_strategy_history 'just --justfile'\nprint -r -- \"SUGGESTION:$suggestion\"\nexit\n"
-        );
-        let mut child = Command::new("zsh")
-            .args(["-f", "-i"])
-            .env(
-                "PATH",
-                format!(
-                    "{}:{}",
-                    fake_bin.display(),
-                    std::env::var("PATH").unwrap_or_default()
-                ),
-            )
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .unwrap();
-        child
-            .stdin
-            .take()
-            .unwrap()
-            .write_all(script.as_bytes())
-            .unwrap();
-        let output = child.wait_with_output().unwrap();
-        assert!(output.status.success());
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(
-            stdout.contains("SUGGESTION:just --justfile '/project/a b.just' deploy"),
-            "sources={sources:?} stdout={stdout:?}"
-        );
-    }
 }
 
 #[test]

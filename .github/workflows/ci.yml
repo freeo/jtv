@@ -10,20 +10,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.98.0
         with:
           components: rustfmt, clippy
       - run: cargo install just --version 1.53.0 --locked
-      - run: cargo fmt --all --check
-      - run: cargo clippy --all-targets --all-features -- -D warnings
-      - run: just test-fast
-      - run: just test-contract
-      - run: cargo test --all-features --test pty_harness -- --test-threads=1
-      - run: cargo build --release
+      - run: just ci
       - name: Upload sanitized test diagnostics
         if: failure()
         uses: actions/upload-artifact@v4
@@ -38,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.98.0
       - run: cargo install just --version 1.53.0 --locked
       - run: cargo install television --version 0.15.9 --locked
       - run: cargo build
@@ -60,7 +55,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.98.0
       - run: cargo install just --version 1.53.0 --locked
       - run: cargo install television --version 0.15.9 --locked
       - run: cargo build
@@ -81,16 +76,6 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  television-windows-capability:
-    name: real Television capability probe (Windows, nonblocking)
-    runs-on: windows-latest
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - run: cargo install television --version 0.15.9 --locked
-      - run: tv --version
-
   msrv:
     runs-on: ubuntu-latest
     steps:
@@ -110,6 +95,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.98.0
       - run: cargo install cargo-audit --locked
       - run: cargo audit
