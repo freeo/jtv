@@ -80,7 +80,11 @@ fn picker_source_emits_only_opaque_ids_and_sanitized_display() {
 
 #[cfg(unix)]
 mod unix {
-    use std::{fs, os::unix::fs::PermissionsExt, path::Path};
+    use std::{
+        fs,
+        os::unix::fs::{PermissionsExt, symlink},
+        path::Path,
+    };
 
     use assert_cmd::Command;
     use predicates::prelude::*;
@@ -234,14 +238,19 @@ mod unix {
     #[test]
     fn invalid_child_justfile_warns_only_after_television_exits() {
         let temp = tempdir().unwrap();
-        let cable = temp.path().join("cable");
-        let just = temp.path().join("just-bin");
-        let tv = temp.path().join("tv-bin");
-        let root = temp.path().join("justfile");
-        let broken = temp.path().join("broken").join("justfile");
+        let real_workspace = temp.path().join("workspace");
+        let workspace = temp.path().join("workspace-link");
+        fs::create_dir(&real_workspace).unwrap();
+        symlink(&real_workspace, &workspace).unwrap();
+        let cable = workspace.join("cable");
+        let just = workspace.join("just-bin");
+        let tv = workspace.join("tv-bin");
+        let root = workspace.join("justfile");
+        let broken = workspace.join("broken").join("justfile");
         fs::write(&root, "root:\n  true\n").unwrap();
         fs::create_dir(broken.parent().unwrap()).unwrap();
         fs::write(&broken, "not valid just syntax").unwrap();
+        let broken = broken.canonicalize().unwrap();
         script(
             &just,
             &format!(
@@ -264,7 +273,7 @@ mod unix {
 
         Command::cargo_bin("jtv")
             .unwrap()
-            .current_dir(temp.path())
+            .current_dir(&workspace)
             .env("JTV_TV_CABLE_DIR", &cable)
             .env("JTV_JUST", &just)
             .env("JTV_TV", &tv)

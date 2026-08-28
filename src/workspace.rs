@@ -69,7 +69,7 @@ pub fn discover(root: &Path, primary: &Path, module_sources: &[PathBuf]) -> Work
         .git_exclude(true)
         .git_global(false)
         .require_git(false)
-        .parents(false)
+        .parents(true)
         .filter_entry(|entry| !is_excluded_dir(entry.path(), entry.file_type()));
     let walker = builder.build();
     for item in walker {

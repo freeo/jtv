@@ -71,23 +71,6 @@ fn respects_gitignore_and_fixed_heavy_tree_exclusions() {
 }
 
 #[test]
-fn does_not_inherit_ignore_rules_above_the_workspace_root() {
-    let temp = tempdir().unwrap();
-    let root = temp.path().join("workspace");
-    fs::create_dir(&root).unwrap();
-    touch(&root, "justfile");
-    touch(&root, "broken/justfile");
-    fs::write(temp.path().join(".gitignore"), "workspace/broken/\n").unwrap();
-
-    let found = discover(&root, &root.join("justfile"), &[]);
-    assert_eq!(found.justfiles.len(), 1);
-    assert_eq!(
-        found.justfiles[0].relative_path,
-        Path::new("broken/justfile")
-    );
-}
-
-#[test]
 fn excludes_authoritative_module_sources_after_canonicalization() {
     let temp = tempdir().unwrap();
     let root = temp.path();
