@@ -77,3 +77,14 @@ build:
 
 install:
   install -m 0755 target/release/jtv ~/.local/bin/jtv
+
+# After updating and committing Cargo.toml/Cargo.lock, tag and trigger the release workflow.
+release version:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    version={{ quote(version) }}
+    [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "usage: just release 0.5.0" >&2; exit 2; }
+    [[ "$(cargo pkgid --locked -p jtv)" == *"#${version}" ]] || { echo "Cargo.toml version does not match ${version}" >&2; exit 1; }
+    [[ -z "$(git status --porcelain)" ]] || { echo "working tree must be clean" >&2; exit 1; }
+    git tag "v${version}"
+    git push origin "v${version}"
