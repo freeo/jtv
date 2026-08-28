@@ -262,7 +262,7 @@ fn zsh_history_command_round_trips_adversarial_and_non_utf8_argv() {
     let output = Command::new("zsh")
         .args(["-f", "-c", &command])
         .output()
-        .unwrap();
+        .expect("zsh is required for this test");
     assert!(output.status.success());
     let expected = args
         .iter()

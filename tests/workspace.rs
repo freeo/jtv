@@ -152,7 +152,7 @@ fn never_traverses_directory_symlinks_or_accepts_file_symlinks() {
     assert!(found.justfiles.is_empty());
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 #[test]
 fn skips_non_utf8_candidates_with_a_stable_warning() {
     use std::{ffi::OsString, os::unix::ffi::OsStringExt};

@@ -279,7 +279,7 @@ mod tests {
         assert_eq!(recursive_relative_paths(larger.path()).len(), 512);
     }
 
-    #[cfg(unix)]
+    #[cfg(target_os = "linux")]
     #[test]
     fn completion_omits_non_utf8_paths_that_television_cannot_display() {
         use std::{ffi::OsString, os::unix::ffi::OsStringExt};
