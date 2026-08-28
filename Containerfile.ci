@@ -1,0 +1,28 @@
+FROM docker.io/library/ubuntu@sha256:1e0a86e57d247923571b75e0aaf48a1449cf8c543d51fb3e07a4a7d7bfa79316
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+    build-essential \
+    ca-certificates \
+    curl \
+    git \
+    pkg-config \
+    procps \
+    zsh \
+ && rm -rf /var/lib/apt/lists/*
+
+ENV RUSTUP_HOME=/opt/rustup
+ENV CARGO_HOME=/opt/cargo
+ENV PATH=/opt/cargo/bin:$PATH
+
+RUN mkdir -p "$RUSTUP_HOME" "$CARGO_HOME" \
+ && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+    | sh -s -- -y --profile minimal --default-toolchain 1.98.0 \
+ && rustup component add clippy rustfmt \
+ && cargo install just --version 1.53.0 --locked \
+ && rm -rf "$CARGO_HOME/registry" "$CARGO_HOME/git"
+
+WORKDIR /workspace
+USER ubuntu

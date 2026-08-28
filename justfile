@@ -63,6 +63,24 @@ ci: check-ci-prereqs fmt-check lint test-fast test-contract
     cargo test --all-features --test pty_harness -- --test-threads=1
     cargo build --release
 
+# Run the Linux CI gate in the pinned Ubuntu userland used for local parity checks.
+ci-ubuntu:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    command -v podman >/dev/null || { echo "podman is required for ci-ubuntu" >&2; exit 1; }
+    podman build --platform linux/amd64 --tag localhost/jtv-ci-ubuntu:latest --file Containerfile.ci .
+    podman run --rm --init --userns=keep-id:uid=1000,gid=1000 --user ubuntu \
+      --workdir /workspace \
+      --env CI=true \
+      --env GITHUB_ACTIONS=true \
+      --env CARGO_INCREMENTAL=0 \
+      --env CARGO_TERM_COLOR=always \
+      --env CARGO_HOME=/tmp/cargo \
+      --env CARGO_TARGET_DIR=/tmp/target \
+      --env LANG=C.UTF-8 \
+      --volume "{{ justfile_directory() }}:/workspace:Z" \
+      localhost/jtv-ci-ubuntu:latest just ci
+
 # Complete local gate; requires pinned just/TV, Rust 1.85, and cargo-audit.
 test-all: fmt-check lint test-fast test-contract
     #!/usr/bin/env bash

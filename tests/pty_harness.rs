@@ -6,8 +6,6 @@ mod pty;
 mod screen;
 
 use std::io::{self, BufRead, Read, Write};
-#[cfg(unix)]
-use std::process::{Command, Stdio};
 use std::time::Duration;
 
 use keys::Key;
@@ -274,12 +272,7 @@ fn terminate_reaps_a_stubborn_descendant_process_group() {
         .unwrap();
     let group = session.process_group_leader().unwrap();
     session.terminate().unwrap();
-    let group_alive = Command::new("kill")
-        .args(["-0", &format!("-{group}")])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .is_ok_and(|status| status.success());
+    let group_alive = pty::process_group_alive(group);
     assert!(!group_alive, "descendant process group {group} survived");
 }
 
@@ -298,12 +291,7 @@ fn terminate_kills_a_stubborn_descendant_after_the_parent_exits_on_term() {
         .unwrap();
     let group = session.process_group_leader().unwrap();
     session.terminate().unwrap();
-    let group_alive = Command::new("kill")
-        .args(["-0", &format!("-{group}")])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .is_ok_and(|status| status.success());
+    let group_alive = pty::process_group_alive(group);
     assert!(!group_alive, "descendant process group {group} survived");
 }
 
@@ -323,12 +311,7 @@ fn drop_kills_a_stubborn_descendant_after_parent_status_was_recorded() {
     let group = session.process_group_leader().unwrap();
     assert!(session.wait_for_exit(DEADLINE).unwrap().success());
     drop(session);
-    let group_alive = Command::new("kill")
-        .args(["-0", &format!("-{group}")])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .is_ok_and(|status| status.success());
+    let group_alive = pty::process_group_alive(group);
     assert!(
         !group_alive,
         "descendant process group {group} survived drop"

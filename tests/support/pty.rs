@@ -417,6 +417,10 @@ impl PtySession {
             }
             if process_group_alive(group) {
                 signal_process_group(group, "-KILL");
+                let deadline = Instant::now() + Duration::from_secs(1);
+                while process_group_alive(group) && Instant::now() < deadline {
+                    thread::sleep(Duration::from_millis(1));
+                }
             }
             if let Some(status) = direct_status {
                 self.record_exit(&status);
@@ -527,13 +531,38 @@ fn signal_process_group(group: i32, signal: &str) {
 }
 
 #[cfg(unix)]
-fn process_group_alive(group: i32) -> bool {
-    Command::new("kill")
-        .args(["-0", &format!("-{group}")])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .is_ok_and(|status| status.success())
+pub fn process_group_alive(group: i32) -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        std::fs::read_dir("/proc").is_ok_and(|entries| {
+            entries.flatten().any(|entry| {
+                let Ok(pid) = entry.file_name().into_string() else {
+                    return false;
+                };
+                let Ok(stat) = std::fs::read_to_string(format!("/proc/{pid}/stat")) else {
+                    return false;
+                };
+                let Some((_, fields)) = stat.rsplit_once(')') else {
+                    return false;
+                };
+                let mut fields = fields.split_whitespace();
+                let state = fields.next();
+                let _parent = fields.next();
+                state != Some("Z")
+                    && fields.next().and_then(|value| value.parse().ok()) == Some(group)
+            })
+        })
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    {
+        Command::new("kill")
+            .args(["-0", &format!("-{group}")])
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .is_ok_and(|status| status.success())
+    }
 }
 
 fn reader_loop(reader: &mut dyn Read, state: &State) {
