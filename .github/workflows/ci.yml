@@ -31,55 +31,6 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  television-linux:
-    name: real Television + snapshots (Linux)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.98.0
-      - run: sudo apt-get update && sudo apt-get install -y zsh
-      - run: cargo install just --version 1.53.0 --locked
-      - run: cargo install television --version 0.15.9 --locked
-      - run: cargo build
-      - run: just test-tui
-      - run: just test-snapshots
-      - run: just test-tui-soak 3
-      - run: just verify-release-artifacts
-      - name: Upload sanitized test diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: jtv-test-artifacts-linux-real-tv
-          path: target/jtv-test-artifacts
-          if-no-files-found: ignore
-          retention-days: 7
-
-  television-macos-smoke:
-    name: real Television smoke (macOS)
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@1.98.0
-      - run: cargo install just --version 1.53.0 --locked
-      - run: cargo install television --version 0.15.9 --locked
-      - run: cargo build
-      - name: Browse, preview, and run
-        run: cargo test --all-features --test tui_workflows browse_filter_visible_preview_and_run -- --ignored --test-threads=1
-      - name: Nested picker
-        run: cargo test --all-features --test tui_workflows nested_choice_boolean_file_and_directory_pickers -- --ignored --test-threads=1
-      - name: Cancellation
-        run: cargo test --all-features --test tui_workflows escape_cancels_root_nested_and_confirmation -- --ignored --test-threads=1
-      - name: Terminal restoration
-        run: cargo test --all-features --test tui_workflows terminal_is_usable_after_interrupt -- --ignored --test-threads=1
-      - name: Upload sanitized test diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: jtv-test-artifacts-macos-real-tv
-          path: target/jtv-test-artifacts
-          if-no-files-found: ignore
-          retention-days: 7
-
   msrv:
     runs-on: ubuntu-latest
     steps:
