@@ -14,22 +14,32 @@ The Rust application is the supported implementation. The scripts under
 - `just` 1.53.0 or newer
 - Television (`tv`) 0.15.9 or newer
 
-## Install on Linux x86_64
+## Install
 
-The GitHub release binary is statically linked and needs neither Rust nor musl
-installed. On Ubuntu and compatible x86_64 servers, install the latest release
-to `/usr/local/bin` with:
+GitHub Releases provide a static Linux x86_64 binary and a universal macOS
+binary. Install the latest release without `sudo` to `~/.local/bin` with:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/freeo/jtv/main/install.sh | sudo sh
+curl -fsSL https://github.com/freeo/jtv/releases/latest/download/jtv-install.sh | sh
 ```
 
 The installer verifies the release SHA-256 checksum before installing. It still
-needs `just` and Television at runtime. To install a particular release, use:
+needs `just` and Television at runtime. To install a particular release, use
+that release's installer and set its version:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/freeo/jtv/main/install.sh | sudo env JTV_VERSION=0.4.0 sh
+curl -fsSL https://github.com/freeo/jtv/releases/download/v0.4.0/jtv-install.sh | JTV_VERSION=0.4.0 sh
 ```
+
+To remove it:
+
+```sh
+curl -fsSL https://github.com/freeo/jtv/releases/latest/download/jtv-install.sh | sh -s uninstall
+```
+
+Set `JTV_INSTALL_DIR` before `sh` to use another directory. Every release asset
+also has a GitHub Actions provenance attestation; after downloading an asset,
+verify it with `gh attestation verify ./jtv -R freeo/jtv`.
 
 ## Build and initialize
 

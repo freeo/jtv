@@ -6,11 +6,15 @@ on:
       - "v*.*.*"
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
+  build-linux:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      attestations: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.98.0
@@ -20,10 +24,64 @@ jobs:
       - run: cargo build --release --locked --target x86_64-unknown-linux-musl --bin jtv
       - name: Prepare release assets
         run: |
-          install -m 0755 target/x86_64-unknown-linux-musl/release/jtv jtv-linux-amd64
-          file jtv-linux-amd64 | grep -q 'static'
-          sha256sum jtv-linux-amd64 > jtv-linux-amd64.sha256
+          mkdir release-assets
+          install -m 0755 target/x86_64-unknown-linux-musl/release/jtv release-assets/jtv-linux-amd64
+          install -m 0755 install.sh release-assets/jtv-install.sh
+          file release-assets/jtv-linux-amd64 | grep -q 'static'
+          (cd release-assets && sha256sum jtv-linux-amd64 > jtv-linux-amd64.sha256)
+      - name: Generate artifact attestations
+        uses: actions/attest@v4
+        with:
+          subject-path: release-assets/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-assets-linux
+          path: release-assets
+
+  build-macos:
+    runs-on: macos-latest
+    permissions:
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.98.0
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - name: Build universal macOS binary
+        run: |
+          cargo build --release --locked --target aarch64-apple-darwin --bin jtv
+          cargo build --release --locked --target x86_64-apple-darwin --bin jtv
+          mkdir release-assets
+          lipo -create \
+            target/aarch64-apple-darwin/release/jtv \
+            target/x86_64-apple-darwin/release/jtv \
+            -output release-assets/jtv-macos-universal
+          chmod 0755 release-assets/jtv-macos-universal
+          lipo -archs release-assets/jtv-macos-universal | grep -qw arm64
+          lipo -archs release-assets/jtv-macos-universal | grep -qw x86_64
+          (cd release-assets && shasum -a 256 jtv-macos-universal > jtv-macos-universal.sha256)
+      - name: Generate artifact attestations
+        uses: actions/attest@v4
+        with:
+          subject-path: release-assets/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-assets-macos
+          path: release-assets
+
+  release:
+    needs: [build-linux, build-macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" jtv-linux-amd64 jtv-linux-amd64.sha256 --verify-tag --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" release-assets/* --verify-tag --generate-notes

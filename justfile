@@ -58,6 +58,7 @@ e2e:
 
 check-ci-prereqs:
     @command -v zsh >/dev/null || { echo "zsh is required for CI tests" >&2; exit 1; }
+    sh -n install.sh
 
 ci: check-ci-prereqs fmt-check lint test-fast test-contract
     cargo test --all-features --test pty_harness -- --test-threads=1
