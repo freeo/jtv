@@ -13,7 +13,7 @@ case "$(uname -s)" in
       *) echo "jtv Linux releases currently support x86_64 only" >&2; exit 1 ;;
     esac
     ;;
-  Darwin) asset="jtv-macos-universal" ;;
+  Darwin) asset="jtv-macos-$(uname -m)" ;;
   *) echo "jtv releases currently support Linux and macOS only" >&2; exit 1 ;;
 esac
 

@@ -22,18 +22,6 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y zsh
       - run: cargo install just --version 1.53.0 --locked
       - run: just ci
-      - name: Build universal macOS release binary
-        if: runner.os == 'macOS'
-        run: |
-          rustup target add aarch64-apple-darwin x86_64-apple-darwin
-          cargo build --release --locked --target aarch64-apple-darwin --bin jtv
-          cargo build --release --locked --target x86_64-apple-darwin --bin jtv
-          lipo -create \
-            target/aarch64-apple-darwin/release/jtv \
-            target/x86_64-apple-darwin/release/jtv \
-            -output target/jtv-macos-universal-ci
-          lipo -archs target/jtv-macos-universal-ci | grep -qw arm64
-          lipo -archs target/jtv-macos-universal-ci | grep -qw x86_64
       - name: Upload sanitized test diagnostics
         if: failure()
         uses: actions/upload-artifact@v4

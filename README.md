@@ -16,8 +16,8 @@ The Rust application is the supported implementation. The scripts under
 
 ## Install
 
-GitHub Releases provide a static Linux x86_64 binary and a universal macOS
-binary. Install the latest release without `sudo` to `~/.local/bin` with:
+GitHub Releases provide a static Linux x86_64 binary and a native macOS Apple
+Silicon binary. Install the latest release without `sudo` to `~/.local/bin` with:
 
 ```sh
 curl -fsSL https://github.com/freeo/jtv/releases/latest/download/jtv-install.sh | sh

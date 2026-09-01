@@ -47,21 +47,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@1.98.0
-        with:
-          targets: aarch64-apple-darwin,x86_64-apple-darwin
-      - name: Build universal macOS binary
+      - name: Build macOS binary
         run: |
-          cargo build --release --locked --target aarch64-apple-darwin --bin jtv
-          cargo build --release --locked --target x86_64-apple-darwin --bin jtv
+          cargo build --release --locked --bin jtv
           mkdir release-assets
-          lipo -create \
-            target/aarch64-apple-darwin/release/jtv \
-            target/x86_64-apple-darwin/release/jtv \
-            -output release-assets/jtv-macos-universal
-          chmod 0755 release-assets/jtv-macos-universal
-          lipo -archs release-assets/jtv-macos-universal | grep -qw arm64
-          lipo -archs release-assets/jtv-macos-universal | grep -qw x86_64
-          (cd release-assets && shasum -a 256 jtv-macos-universal > jtv-macos-universal.sha256)
+          asset="jtv-macos-$(uname -m)"
+          install -m 0755 target/release/jtv "release-assets/$asset"
+          (cd release-assets && shasum -a 256 "$asset" > "$asset.sha256")
       - name: Generate artifact attestations
         uses: actions/attest@v4
         with:
