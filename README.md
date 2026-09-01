@@ -14,6 +14,23 @@ The Rust application is the supported implementation. The scripts under
 - `just` 1.53.0 or newer
 - Television (`tv`) 0.15.9 or newer
 
+## Install on Linux x86_64
+
+The GitHub release binary is statically linked and needs neither Rust nor musl
+installed. On Ubuntu and compatible x86_64 servers, install the latest release
+to `/usr/local/bin` with:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/freeo/jtv/main/install.sh | sudo sh
+```
+
+The installer verifies the release SHA-256 checksum before installing. It still
+needs `just` and Television at runtime. To install a particular release, use:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/freeo/jtv/main/install.sh | sudo env JTV_VERSION=0.4.0 sh
+```
+
 ## Build and initialize
 
 ```sh
