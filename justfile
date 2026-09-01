@@ -100,14 +100,25 @@ build:
 install:
   install -m 0755 target/release/jtv ~/.local/bin/jtv
 
-# After updating and committing Cargo.toml/Cargo.lock, tag and trigger the release workflow.
-release version:
+# Validate a manual release without creating or pushing a tag.
+release-preflight version:
     #!/usr/bin/env bash
     set -euo pipefail
     version={{ quote(version) }}
     [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "usage: just release 0.5.0" >&2; exit 2; }
     [[ "$(cargo pkgid --locked -p jtv)" == *"#${version}" ]] || { echo "Cargo.toml version does not match ${version}" >&2; exit 1; }
     [[ -z "$(git status --porcelain)" ]] || { echo "working tree must be clean" >&2; exit 1; }
+    ! git rev-parse --verify --quiet "refs/tags/v${version}" >/dev/null || { echo "tag v${version} already exists locally" >&2; exit 1; }
+    [[ -z "$(git ls-remote --tags origin "refs/tags/v${version}")" ]] || { echo "tag v${version} already exists on origin" >&2; exit 1; }
     just ci
+
+release-dry-run version: (release-preflight version)
+    @echo "release v{{version}} preflight passed; no tag or push was created"
+
+# After updating and committing Cargo.toml/Cargo.lock, tag and trigger the release workflow.
+release version: (release-preflight version)
+    #!/usr/bin/env bash
+    set -euo pipefail
+    version={{ quote(version) }}
     git tag "v${version}"
     git push origin "v${version}"
